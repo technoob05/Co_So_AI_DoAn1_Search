@@ -1,0 +1,289 @@
+algorithms:
+  ABC:
+    default_params:
+      limit: 20
+      max_iter: 100
+      n_bees: 30
+    description: Mô phỏng hành vi tìm thức ăn của ong mật
+    name: Artificial Bee Colony
+    param_ranges:
+      limit:
+      - 10
+      - 50
+      max_iter:
+      - 10
+      - 500
+      n_bees:
+      - 10
+      - 100
+    type: swarm
+  ACO:
+    default_params:
+      archive_size: 50
+      max_iter: 100
+      n_ants: 30
+      q: 0.5
+      xi: 0.85
+    description: Lấy cảm hứng từ kiến tìm đường bằng pheromone
+    name: Ant Colony Optimization
+    param_ranges:
+      archive_size:
+      - 20
+      - 100
+      max_iter:
+      - 10
+      - 500
+      n_ants:
+      - 10
+      - 100
+      q:
+      - 0.1
+      - 1.0
+      xi:
+      - 0.5
+      - 1.0
+    type: swarm
+  AStar:
+    default_params:
+      heuristic: manhattan
+    description: Tìm kiếm có thông tin với heuristic
+    name: A* Search
+    param_ranges: {}
+    type: graph
+  BFS:
+    default_params: {}
+    description: Tìm kiếm theo chiều rộng, đảm bảo đường đi ngắn nhất
+    name: Breadth-First Search
+    param_ranges: {}
+    type: graph
+  Cuckoo:
+    default_params:
+      beta: 1.5
+      max_iter: 100
+      n_nests: 30
+      pa: 0.25
+    description: Dựa trên hành vi đẻ trứng ký sinh của chim cu-cu
+    name: Cuckoo Search
+    param_ranges:
+      beta:
+      - 1.0
+      - 3.0
+      max_iter:
+      - 10
+      - 500
+      n_nests:
+      - 10
+      - 100
+      pa:
+      - 0.1
+      - 0.5
+    type: swarm
+  DFS:
+    default_params:
+      max_depth: null
+    description: Tìm kiếm theo chiều sâu
+    name: Depth-First Search
+    param_ranges:
+      max_depth:
+      - 10
+      - 1000
+    type: graph
+  Firefly:
+    default_params:
+      alpha: 0.5
+      beta0: 1.0
+      gamma: 1.0
+      max_iter: 100
+      n_fireflies: 30
+    description: Dựa trên ánh sáng của đom đóm
+    name: Firefly Algorithm
+    param_ranges:
+      alpha:
+      - 0.1
+      - 1.0
+      beta0:
+      - 0.5
+      - 2.0
+      gamma:
+      - 0.1
+      - 2.0
+      max_iter:
+      - 10
+      - 500
+      n_fireflies:
+      - 10
+      - 100
+    type: swarm
+  GeneticAlgorithm:
+    default_params:
+      crossover_rate: 0.8
+      elite_size: 2
+      max_iter: 100
+      mutation_rate: 0.1
+      population_size: 50
+    description: Mô phỏng quá trình tiến hóa tự nhiên
+    name: Genetic Algorithm
+    param_ranges:
+      crossover_rate:
+      - 0.5
+      - 1.0
+      elite_size:
+      - 1
+      - 10
+      max_iter:
+      - 10
+      - 500
+      mutation_rate:
+      - 0.01
+      - 0.3
+      population_size:
+      - 10
+      - 100
+    type: traditional
+  HillClimbing:
+    default_params:
+      max_iter: 100
+      step_size: 0.5
+    description: Thuật toán tìm kiếm cục bộ đơn giản
+    name: Hill Climbing
+    param_ranges:
+      max_iter:
+      - 10
+      - 500
+      step_size:
+      - 0.1
+      - 2.0
+    type: traditional
+  PSO:
+    default_params:
+      c1: 1.5
+      c2: 1.5
+      max_iter: 100
+      n_particles: 30
+      w: 0.7
+    description: Mô phỏng hành vi bầy đàn của chim và cá
+    name: Particle Swarm Optimization
+    param_ranges:
+      c1:
+      - 0.5
+      - 3.0
+      c2:
+      - 0.5
+      - 3.0
+      max_iter:
+      - 10
+      - 500
+      n_particles:
+      - 10
+      - 100
+      w:
+      - 0.1
+      - 1.0
+    type: swarm
+  SimulatedAnnealing:
+    default_params:
+      alpha: 0.95
+      final_temp: 0.001
+      initial_temp: 100.0
+      max_iter: 1000
+      step_size: 1.0
+    description: Mô phỏng quá trình ủ kim loại
+    name: Simulated Annealing
+    param_ranges:
+      alpha:
+      - 0.8
+      - 0.99
+      final_temp:
+      - 0.0001
+      - 0.01
+      initial_temp:
+      - 50.0
+      - 200.0
+      max_iter:
+      - 100
+      - 5000
+      step_size:
+      - 0.1
+      - 2.0
+    type: traditional
+discrete_problems:
+  graph_coloring:
+    default_params:
+      edge_probability: 0.3
+      n_vertices: 20
+    name: Graph Coloring Problem
+  knapsack:
+    default_params:
+      capacity: null
+      n_items: 20
+    name: 0/1 Knapsack Problem
+  tsp:
+    default_params:
+      n_cities: 20
+    name: Traveling Salesman Problem
+experiments:
+  convergence_threshold: 0.01
+  default_n_jobs: -1
+  default_n_runs: 30
+  max_time_per_run: 300
+  random_seed: 42
+logging:
+  log_dir: logs
+  results_dir: results
+  save_data: true
+  save_plots: true
+  verbose: true
+test_functions:
+  ackley:
+    bounds:
+    - -32.768
+    - 32.768
+    difficulty: hard
+    global_optimum: 0.0
+    name: Ackley Function
+    properties:
+    - multimodal
+    - non-separable
+  rastrigin:
+    bounds:
+    - -5.12
+    - 5.12
+    difficulty: hard
+    global_optimum: 0.0
+    name: Rastrigin Function
+    properties:
+    - multimodal
+    - separable
+  rosenbrock:
+    bounds:
+    - -5
+    - 10
+    difficulty: medium
+    global_optimum: 0.0
+    name: Rosenbrock Function
+    properties:
+    - unimodal
+    - non-convex
+    - non-separable
+  sphere:
+    bounds:
+    - -100
+    - 100
+    difficulty: easy
+    global_optimum: 0.0
+    name: Sphere Function
+    properties:
+    - unimodal
+    - convex
+    - separable
+visualization:
+  animation_fps: 10
+  color_palette: Set3
+  default_figsize:
+  - 12
+  - 8
+  figure_dpi: 300
+  figure_formats:
+  - png
+  - pdf
+  plot_style: seaborn

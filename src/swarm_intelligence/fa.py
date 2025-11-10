@@ -72,14 +72,17 @@ class FireflyAlgorithm:
         """Calculate attractiveness as a function of distance"""
         return self.beta0 * np.exp(-self.gamma * distance ** 2)
     
-    def _move_firefly(self, firefly_i, firefly_j, beta):
+    def _move_firefly(self, firefly_i, firefly_j, beta, alpha_current=None):
         """Move firefly i towards firefly j"""
+        # Use adaptive alpha if provided, otherwise use default
+        alpha = alpha_current if alpha_current is not None else self.alpha
+        
         # Random walk component
         epsilon = np.random.uniform(-0.5, 0.5, self.dim)
         
         # Move towards brighter firefly
         new_position = firefly_i + beta * (firefly_j - firefly_i) + \
-                      self.alpha * epsilon
+                      alpha * epsilon
         
         # Apply bounds
         new_position = np.clip(new_position, self.bounds[:, 0], self.bounds[:, 1])
@@ -118,27 +121,32 @@ class FireflyAlgorithm:
             # Decrease alpha over time (adaptive randomization)
             alpha_current = self.alpha * (0.95 ** iteration)
             
+            # FIXED: Store original intensities for comparison
+            original_intensity = self.light_intensity.copy()
+            
             # For each firefly
             for i in range(self.n_fireflies):
                 # Compare with all other fireflies
                 for j in range(self.n_fireflies):
                     # If firefly j is brighter (better fitness)
-                    if self.light_intensity[j] < self.light_intensity[i]:
+                    # Compare with original intensity to maintain consistency
+                    if original_intensity[j] < original_intensity[i]:
                         # Calculate distance
                         r = self._distance(self.fireflies[i], self.fireflies[j])
                         
                         # Calculate attractiveness
                         beta = self._attractiveness(r)
                         
-                        # Move firefly i towards j
+                        # Move firefly i towards j (with adaptive alpha)
                         self.fireflies[i] = self._move_firefly(
                             self.fireflies[i],
                             self.fireflies[j],
-                            beta
+                            beta,
+                            alpha_current
                         )
-                        
-                        # Evaluate new position
-                        self.light_intensity[i] = objective_function(self.fireflies[i])
+            
+            # Evaluate all new positions AFTER all movements are done
+            self.light_intensity = np.array([objective_function(ff) for ff in self.fireflies])
             
             # Update best
             best_idx = np.argmin(self.light_intensity)

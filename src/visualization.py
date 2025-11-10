@@ -335,6 +335,245 @@ class OptimizationVisualizer:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
         
         plt.show()
+    
+    @staticmethod
+    def plot_knapsack_solution(knapsack, solution, title="Knapsack Solution",
+                               save_path=None):
+        """
+        Visualize knapsack solution
+        
+        Parameters:
+        -----------
+        knapsack : Knapsack
+            Knapsack problem instance
+        solution : numpy.ndarray
+            Binary solution array
+        title : str
+            Plot title
+        save_path : str, optional
+            Path to save figure
+        """
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+        
+        # Left: Items selected
+        selected = np.where(solution == 1)[0]
+        not_selected = np.where(solution == 0)[0]
+        
+        axes[0].scatter(knapsack.weights[not_selected], knapsack.values[not_selected],
+                       c='lightgray', s=100, alpha=0.5, label='Not selected')
+        axes[0].scatter(knapsack.weights[selected], knapsack.values[selected],
+                       c='green', s=150, alpha=0.7, label='Selected')
+        
+        axes[0].set_xlabel('Weight', fontsize=12)
+        axes[0].set_ylabel('Value', fontsize=12)
+        axes[0].set_title('Items: Weight vs Value', fontsize=13, fontweight='bold')
+        axes[0].legend()
+        axes[0].grid(True, alpha=0.3)
+        
+        # Right: Summary statistics
+        total_weight = knapsack.get_weight(solution)
+        total_value = knapsack.get_value(solution)
+        n_selected = np.sum(solution)
+        
+        summary_text = (
+            f"Selected Items: {n_selected}/{knapsack.n_items}\n"
+            f"Total Weight: {total_weight}/{knapsack.capacity}\n"
+            f"Total Value: {total_value}\n"
+            f"Capacity Used: {total_weight/knapsack.capacity*100:.1f}%\n"
+            f"Valid: {'Yes' if knapsack.is_valid(solution) else 'No'}"
+        )
+        
+        axes[1].text(0.1, 0.5, summary_text, fontsize=14, 
+                    verticalalignment='center',
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        axes[1].axis('off')
+        
+        # Bar chart for capacity usage
+        ax_bar = axes[1].inset_axes([0.1, 0.1, 0.8, 0.25])
+        ax_bar.barh(['Capacity'], [total_weight], color='green', alpha=0.7)
+        ax_bar.barh(['Capacity'], [knapsack.capacity - total_weight], 
+                   left=[total_weight], color='lightgray', alpha=0.5)
+        ax_bar.set_xlim(0, knapsack.capacity)
+        ax_bar.set_xlabel('Weight')
+        
+        plt.suptitle(title, fontsize=14, fontweight='bold', y=0.98)
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        
+        plt.show()
+    
+    @staticmethod
+    def plot_graph_coloring(graph, coloring, title="Graph Coloring Solution",
+                           save_path=None):
+        """
+        Visualize graph coloring solution
+        
+        Parameters:
+        -----------
+        graph : GraphColoring
+            Graph coloring problem instance
+        coloring : numpy.ndarray
+            Color assignment for each vertex
+        title : str
+            Plot title
+        save_path : str, optional
+            Path to save figure
+        """
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+        
+        # Left: Graph visualization (circular layout)
+        n = graph.n_vertices
+        angles = np.linspace(0, 2*np.pi, n, endpoint=False)
+        pos = np.column_stack([np.cos(angles), np.sin(angles)])
+        
+        # Draw edges
+        for i, j in graph.edges:
+            x = [pos[i, 0], pos[j, 0]]
+            y = [pos[i, 1], pos[j, 1]]
+            # Red if conflict, gray otherwise
+            color = 'red' if coloring[i] == coloring[j] else 'gray'
+            alpha = 0.8 if coloring[i] == coloring[j] else 0.3
+            axes[0].plot(x, y, color=color, alpha=alpha, linewidth=1.5)
+        
+        # Draw vertices
+        colors = plt.cm.Set3(np.linspace(0, 1, max(coloring) + 1))
+        vertex_colors = [colors[c] for c in coloring]
+        
+        axes[0].scatter(pos[:, 0], pos[:, 1], c=vertex_colors, 
+                       s=300, edgecolors='black', linewidth=2, zorder=10)
+        
+        # Add vertex labels
+        for i in range(n):
+            axes[0].text(pos[i, 0], pos[i, 1], str(i), 
+                        ha='center', va='center', fontsize=8, fontweight='bold')
+        
+        axes[0].set_xlim(-1.2, 1.2)
+        axes[0].set_ylim(-1.2, 1.2)
+        axes[0].set_aspect('equal')
+        axes[0].axis('off')
+        axes[0].set_title('Graph Coloring', fontsize=13, fontweight='bold')
+        
+        # Right: Summary statistics
+        n_conflicts = graph.count_conflicts(coloring)
+        n_colors = graph.count_colors(coloring)
+        is_valid = graph.is_valid(coloring)
+        
+        summary_text = (
+            f"Vertices: {graph.n_vertices}\n"
+            f"Edges: {len(graph.edges)}\n"
+            f"Colors Used: {n_colors}\n"
+            f"Conflicts: {n_conflicts}\n"
+            f"Valid: {'Yes' if is_valid else 'No'}"
+        )
+        
+        axes[1].text(0.1, 0.5, summary_text, fontsize=14,
+                    verticalalignment='center',
+                    bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
+        axes[1].axis('off')
+        
+        # Color distribution
+        color_counts = np.bincount(coloring)
+        ax_bar = axes[1].inset_axes([0.1, 0.1, 0.8, 0.3])
+        ax_bar.bar(range(len(color_counts)), color_counts, 
+                  color=[colors[i] for i in range(len(color_counts))],
+                  edgecolor='black')
+        ax_bar.set_xlabel('Color')
+        ax_bar.set_ylabel('Count')
+        ax_bar.set_title('Color Distribution', fontsize=10)
+        
+        plt.suptitle(title, fontsize=14, fontweight='bold', y=0.98)
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        
+        plt.show()
+    
+    @staticmethod
+    def plot_grid_path(grid_world, path, title="Path Finding Solution",
+                      save_path=None):
+        """
+        Visualize path finding solution on grid
+        
+        Parameters:
+        -----------
+        grid_world : GridWorld
+            Grid world instance
+        path : list of tuples
+            Path from start to goal
+        title : str
+            Plot title
+        save_path : str, optional
+            Path to save figure
+        """
+        fig, ax = plt.subplots(figsize=(10, 10))
+        
+        # Create grid visualization
+        grid_display = np.zeros((grid_world.rows, grid_world.cols, 3))
+        
+        # Color obstacles (dark gray)
+        grid_display[grid_world.grid == 1] = [0.3, 0.3, 0.3]
+        
+        # Color free spaces (white)
+        grid_display[grid_world.grid == 0] = [1, 1, 1]
+        
+        # Color path (light blue)
+        if path:
+            for r, c in path:
+                grid_display[r, c] = [0.5, 0.8, 1.0]
+        
+        # Color start (green)
+        grid_display[grid_world.start] = [0, 1, 0]
+        
+        # Color goal (red)
+        grid_display[grid_world.goal] = [1, 0, 0]
+        
+        ax.imshow(grid_display, interpolation='nearest')
+        
+        # Draw grid lines
+        for i in range(grid_world.rows + 1):
+            ax.axhline(i - 0.5, color='gray', linewidth=0.5, alpha=0.5)
+        for j in range(grid_world.cols + 1):
+            ax.axvline(j - 0.5, color='gray', linewidth=0.5, alpha=0.5)
+        
+        # Draw path with arrows
+        if path and len(path) > 1:
+            for i in range(len(path) - 1):
+                r1, c1 = path[i]
+                r2, c2 = path[i + 1]
+                ax.arrow(c1, r1, c2 - c1, r2 - r1,
+                        head_width=0.3, head_length=0.2,
+                        fc='blue', ec='blue', alpha=0.5, length_includes_head=True)
+        
+        # Add labels
+        ax.text(grid_world.start[1], grid_world.start[0], 'S',
+               ha='center', va='center', fontsize=14, fontweight='bold', color='white')
+        ax.text(grid_world.goal[1], grid_world.goal[0], 'G',
+               ha='center', va='center', fontsize=14, fontweight='bold', color='white')
+        
+        ax.set_title(title, fontsize=14, fontweight='bold')
+        ax.set_xlabel('Column', fontsize=12)
+        ax.set_ylabel('Row', fontsize=12)
+        
+        # Add legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor=[0, 1, 0], label='Start'),
+            Patch(facecolor=[1, 0, 0], label='Goal'),
+            Patch(facecolor=[0.5, 0.8, 1.0], label='Path'),
+            Patch(facecolor=[0.3, 0.3, 0.3], label='Obstacle'),
+            Patch(facecolor=[1, 1, 1], edgecolor='gray', label='Free')
+        ]
+        ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1, 1))
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        
+        plt.show()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,16 @@
+name: co_so_ai_doan1_search
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.8,<3.12
+  - pip
+  - pip:
+      - numpy>=1.24.0,<2.0.0
+      - matplotlib>=3.7.0
+      - pandas>=2.0.0
+      - jupyter>=1.0.0
+      - notebook>=6.5.0
+      - ipykernel
+      - tqdm>=4.65.0
+

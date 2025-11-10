@@ -16,17 +16,25 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual Environment
 venv/
 env/
 ENV/
-.venv
+env.bak/
+venv.bak/
 
-# IDE
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# IDEs
 .vscode/
 .idea/
 *.swp
@@ -34,19 +42,30 @@ ENV/
 *~
 .DS_Store
 
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb_checkpoints/
+# Test outputs (temporary results)
+test_outputs/
+temp/
+tmp/
 
-# Results
-results/*.png
-results/*.csv
-results/*.txt
-!results/.gitkeep
+# Logs (keep structure, ignore content)
+logs/*.json
+logs/*.log
 
-# Logs
-*.log
+# Results - keep final results only
+results/temp/
+results/draft/
 
 # OS
 Thumbs.db
+.DS_Store
+desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Conda
+.conda/
+*.tar.bz2
 
