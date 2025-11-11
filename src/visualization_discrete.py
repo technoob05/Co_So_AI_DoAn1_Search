@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, FancyBboxPatch
 from matplotlib.collections import LineCollection
+from matplotlib.lines import Line2D
 import matplotlib.patches as mpatches
 from matplotlib import cm
 import seaborn as sns
@@ -390,208 +391,172 @@ class KnapsackVisualizer:
         population_solutions : list of numpy.ndarray, optional
             Population solutions (cho swarm algorithms)
         """
-        fig = plt.figure(figsize=(20, 10))
-        gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
+        # Layout giống hình: 2 rows x 2 columns + 1 stats panel
+        fig = plt.figure(figsize=(18, 10))
+        gs = fig.add_gridspec(2, 3, hspace=0.35, wspace=0.4, 
+                             width_ratios=[1.2, 1.2, 0.8], height_ratios=[1, 0.6])
         
-        # ========== MAIN PANEL: Items Bar Chart ==========
-        ax_main = fig.add_subplot(gs[:, 0])
-        
+        # Calculate metrics
         n_items = len(knapsack.weights)
-        items = np.arange(n_items)
-        
-        # Calculate value/weight ratio
-        ratios = knapsack.values / (knapsack.weights + 1e-10)
-        
-        # Sort by ratio for better visualization
-        sorted_indices = np.argsort(ratios)[::-1]
-        
-        # Colors based on selection
-        colors = []
-        for i in sorted_indices:
-            if best_solution[i] == 1:
-                colors.append('limegreen')
-            else:
-                colors.append('lightgray')
-        
-        # Bar chart ngang
-        bars = ax_main.barh(items, ratios[sorted_indices], color=colors,
-                           edgecolor='black', linewidth=1.5, alpha=0.8)
-        
-        # Highlight items with high value
-        for i, (idx, bar) in enumerate(zip(sorted_indices, bars)):
-            if best_solution[idx] == 1:
-                bar.set_edgecolor('darkgreen')
-                bar.set_linewidth(3)
-        
-        ax_main.set_xlabel('Value/Weight Ratio', fontsize=12, fontweight='bold')
-        ax_main.set_ylabel('Item Index', fontsize=12, fontweight='bold')
-        ax_main.set_title(f'{algorithm_name} - Knapsack Selection\nIteration {iteration}',
-                         fontsize=14, fontweight='bold')
-        ax_main.set_yticks(items[::max(1, n_items//20)])  # Show every Nth item
-        ax_main.set_yticklabels(sorted_indices[::max(1, n_items//20)])
-        ax_main.grid(True, alpha=0.3, axis='x')
-        
-        # Legend
-        green_patch = mpatches.Patch(color='limegreen', label='Selected')
-        gray_patch = mpatches.Patch(color='lightgray', label='Not Selected')
-        ax_main.legend(handles=[green_patch, gray_patch], loc='lower right', fontsize=10)
-        
-        # ========== CAPACITY TRACKER ==========
-        ax_capacity = fig.add_subplot(gs[0, 1])
-        ax_capacity.axis('off')
-        
         current_weight = knapsack.get_weight(best_solution)
         current_value = knapsack.get_value(best_solution)
         capacity = knapsack.capacity
+        n_selected = int(np.sum(best_solution))
+        
+        # Calculate value/weight ratios
+        ratios = knapsack.values / (knapsack.weights + 1e-10)
+        
+        # ========== PANEL 1: Item Selection Bar Chart (Top Left) ==========
+        ax_items = fig.add_subplot(gs[0, 0])
+        
+        items = np.arange(n_items)
+        
+        # Colors: green for selected, gray for not selected
+        colors = ['limegreen' if best_solution[i] == 1 else 'lightgray' 
+                  for i in range(n_items)]
+        
+        # Horizontal bar chart
+        bars = ax_items.barh(items, ratios, color=colors,
+                            edgecolor='black', linewidth=1, alpha=0.85)
+        
+        # Add labels for selected items with high ratio
+        for i, (ratio, weight, value) in enumerate(zip(ratios, knapsack.weights, knapsack.values)):
+            if best_solution[i] == 1 and ratio > np.percentile(ratios, 70):
+                ax_items.text(ratio + 0.5, i, f'V:{int(value)} W:{int(weight)}',
+                            va='center', fontsize=8, fontweight='bold')
+        
+        ax_items.set_xlabel('Value/Weight Ratio', fontsize=11, fontweight='bold')
+        ax_items.set_ylabel('Item Index', fontsize=11, fontweight='bold')
+        ax_items.set_title(f'Item Selection - Iteration {iteration}\nSelected: {n_selected}/{n_items} items',
+                          fontsize=12, fontweight='bold')
+        ax_items.grid(True, alpha=0.3, axis='x')
+        ax_items.invert_yaxis()  # Để item 0 ở trên cùng
+        
+        # ========== PANEL 2: Item Distribution Scatter (Top Right) ==========
+        ax_scatter = fig.add_subplot(gs[0, 1])
+        
+        # Scatter plot: Weight vs Value
+        for i in range(n_items):
+            if best_solution[i] == 1:
+                ax_scatter.scatter(knapsack.weights[i], knapsack.values[i],
+                                 s=150, c='limegreen', marker='s',
+                                 edgecolors='darkgreen', linewidths=2,
+                                 alpha=0.8, zorder=3)
+            else:
+                ax_scatter.scatter(knapsack.weights[i], knapsack.values[i],
+                                 s=100, c='lightgray', marker='o',
+                                 edgecolors='gray', linewidths=1,
+                                 alpha=0.6, zorder=2)
+        
+        ax_scatter.set_xlabel('Weight', fontsize=11, fontweight='bold')
+        ax_scatter.set_ylabel('Value', fontsize=11, fontweight='bold')
+        ax_scatter.set_title('Item Distribution', fontsize=12, fontweight='bold')
+        ax_scatter.grid(True, alpha=0.3)
+        
+        # Legend - sử dụng Line2D để có marker
+        legend_elements = [
+            Line2D([0], [0], marker='s', color='w', markerfacecolor='limegreen',
+                   markeredgecolor='darkgreen', markersize=10, label='Selected'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='lightgray',
+                   markeredgecolor='gray', markersize=8, label='Not Selected')
+        ]
+        ax_scatter.legend(handles=legend_elements, loc='upper left', fontsize=9)
+        
+        # ========== PANEL 3: Capacity Usage Bar (Bottom Left) ==========
+        ax_capacity = fig.add_subplot(gs[1, 0])
+        
         usage_pct = (current_weight / capacity) * 100
         
-        # Color based on usage
+        # Determine color and status based on usage
         if usage_pct < 80:
             color = 'limegreen'
-            status = '✅ Optimal'
-        elif usage_pct < 95:
+            status = 'Good'
+        elif usage_pct < 100:
             color = 'gold'
-            status = '⚠️ Good'
+            status = 'Good'
         else:
             color = 'orangered'
-            status = '🔴 Near Limit'
+            status = 'Over Capacity!'
         
-        # Draw capacity bar
-        bar_height = 0.6
-        bar_y = 0.5
-        
-        # Background (max capacity)
-        ax_capacity.barh([bar_y], [100], height=bar_height,
+        # Draw horizontal progress bar
+        ax_capacity.barh([0], [capacity], height=0.5,
                         color='lightgray', edgecolor='black', linewidth=2)
+        ax_capacity.barh([0], [current_weight], height=0.5,
+                        color=color, edgecolor='darkgreen', linewidth=2, alpha=0.85)
         
-        # Current usage
-        ax_capacity.barh([bar_y], [usage_pct], height=bar_height,
-                        color=color, edgecolor='darkgreen', linewidth=3, alpha=0.8)
-        
-        # Text annotations
-        ax_capacity.text(0.5, 0.9, f'Capacity Usage: {status}',
-                        ha='center', va='top', fontsize=14, fontweight='bold',
-                        transform=ax_capacity.transAxes)
-        
-        ax_capacity.text(0.5, bar_y, 
-                        f'{current_weight:.1f} / {capacity:.1f} ({usage_pct:.1f}%)',
-                        ha='center', va='center', fontsize=12, fontweight='bold',
+        # Add text label on bar
+        ax_capacity.text(current_weight / 2, 0, f'{int(current_weight)}kg',
+                        ha='center', va='center', fontsize=14, fontweight='bold',
                         color='white' if usage_pct > 50 else 'black')
         
-        ax_capacity.text(0.5, 0.1, f'Total Value: {current_value:.1f}',
-                        ha='center', va='bottom', fontsize=13, fontweight='bold',
-                        transform=ax_capacity.transAxes,
-                        bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+        # Add capacity markers
+        ax_capacity.text(0, -0.8, '0', ha='center', va='top', fontsize=10)
+        ax_capacity.text(capacity, -0.8, str(int(capacity)), ha='center', va='top', fontsize=10)
         
-        ax_capacity.set_xlim(0, 100)
-        ax_capacity.set_ylim(0, 1)
+        # Title with status
+        ax_capacity.set_title(f'Capacity Usage\nCapacity: {int(capacity)}kg | Used: {usage_pct:.1f}% | Status: {status}',
+                            fontsize=11, fontweight='bold', pad=10)
         
-        # ========== VALUE EVOLUTION (placeholder for now) ==========
-        ax_value = fig.add_subplot(gs[1, 1])
+        ax_capacity.set_xlim(0, capacity * 1.1)
+        ax_capacity.set_ylim(-1, 1)
+        ax_capacity.axis('off')
         
-        # Tạo dummy data cho visualization
-        # Trong thực tế, cần truyền history vào
-        iterations_range = range(iteration + 1)
-        values = [current_value * (1 - 0.3 * np.exp(-i/10)) for i in iterations_range]
+        # ========== PANEL 4: Statistics Panel (Right Side - SPANS 2 ROWS) ==========
+        ax_stats = fig.add_subplot(gs[:, 2])
+        ax_stats.axis('off')
         
-        ax_value.plot(iterations_range, values, 'b-', linewidth=2.5, 
-                     marker='o', markersize=5, markevery=max(1, len(iterations_range)//10))
-        ax_value.set_xlabel('Iteration', fontsize=11, fontweight='bold')
-        ax_value.set_ylabel('Total Value', fontsize=11, fontweight='bold')
-        ax_value.set_title('Value Evolution', fontsize=12, fontweight='bold')
-        ax_value.grid(True, alpha=0.3)
-        ax_value.fill_between(iterations_range, values, alpha=0.3)
+        # Calculate metrics
+        value_density = current_value / (current_weight + 1e-10)
+        not_selected = n_items - n_selected
+        is_valid = knapsack.is_valid(best_solution)
         
-        # ========== POPULATION DIVERSITY / BEST SOLUTION ==========
-        ax_diversity = fig.add_subplot(gs[0, 2])
+        # Create styled text box - giống hình user gửi
+        stats_text = f"""
+╔══════════════════════════╗
+║   KNAPSACK STATISTICS    ║
+╚══════════════════════════╝
+
+▣ Total Items: {n_items}
+▣ Selected: {n_selected}
+▣ Not Selected: {not_selected}
+
+▣ Total Value: {int(current_value)}
+▣ Total Weight: {int(current_weight)} / {int(capacity)}
+▣ Capacity Used: {usage_pct:.1f}%
+
+▣ Value Density: {value_density:.2f}
+  (value per kg)
+
+╔══════════════════════════╗
+║      VALIDATION          ║
+╚══════════════════════════╝
+
+Valid Solution: ☑ {'YES' if is_valid else 'NO'}
+Status: {status}
+
+╔══════════════════════════╗
+║      ALGORITHM           ║
+╚══════════════════════════╝
+
+Name: {algorithm_name}
+Iteration: {iteration}
+"""
         
-        if population_solutions is not None and len(population_solutions) > 0:
-            # POPULATION MODE (cho GA)
-            pop_values = []
-            pop_weights = []
-            
-            for sol in population_solutions:
-                pop_values.append(knapsack.get_value(sol))
-                pop_weights.append(knapsack.get_weight(sol))
-            
-            # Scatter plot
-            ax_diversity.scatter(pop_weights, pop_values, 
-                               c='skyblue', s=100, alpha=0.6,
-                               edgecolors='darkblue', linewidths=1.5)
-            
-            # Highlight best solution
-            ax_diversity.scatter([current_weight], [current_value],
-                               c='gold', s=400, marker='*',
-                               edgecolors='darkgoldenrod', linewidths=3,
-                               label='Best', zorder=10)
-            
-            # Capacity line
-            ax_diversity.axvline(capacity, color='red', linestyle='--',
-                               linewidth=2, label='Max Capacity', alpha=0.7)
-            
-            ax_diversity.set_xlabel('Weight', fontsize=11, fontweight='bold')
-            ax_diversity.set_ylabel('Value', fontsize=11, fontweight='bold')
-            ax_diversity.set_title('Population Diversity', fontsize=12, fontweight='bold')
-            ax_diversity.legend(fontsize=9)
-            ax_diversity.grid(True, alpha=0.3)
-        else:
-            # BEST SOLUTION MODE (cho HC/SA)
-            ax_diversity.axis('off')
-            
-            # Title
-            ax_diversity.text(0.5, 0.95, '🏆 Best Solution Details',
-                            ha='center', va='top', fontsize=14, fontweight='bold',
-                            transform=ax_diversity.transAxes,
-                            bbox=dict(boxstyle='round', facecolor='gold', alpha=0.3))
-            
-            # Selected items count
-            n_selected = int(np.sum(best_solution))
-            ax_diversity.text(0.5, 0.75, f'Items Selected: {n_selected}/{n_items}',
-                            ha='center', va='center', fontsize=12, fontweight='bold',
-                            transform=ax_diversity.transAxes)
-            
-            # Total value (large)
-            ax_diversity.text(0.5, 0.55, f'💰 Value: {current_value:.1f}',
-                            ha='center', va='center', fontsize=16, fontweight='bold',
-                            transform=ax_diversity.transAxes,
-                            color='green')
-            
-            # Total weight
-            ax_diversity.text(0.5, 0.40, f'⚖️ Weight: {current_weight:.1f} / {capacity:.1f}',
-                            ha='center', va='center', fontsize=12,
-                            transform=ax_diversity.transAxes)
-            
-            # Utilization percentage
-            ax_diversity.text(0.5, 0.25, f'📊 Utilization: {usage_pct:.1f}%',
-                            ha='center', va='center', fontsize=12,
-                            transform=ax_diversity.transAxes)
-            
-            # Efficiency (value per weight)
-            efficiency = current_value / (current_weight + 1e-10)
-            ax_diversity.text(0.5, 0.10, f'⚡ Efficiency: {efficiency:.2f}',
-                            ha='center', va='center', fontsize=12,
-                            transform=ax_diversity.transAxes,
-                            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
+        # Display text with monospace font
+        ax_stats.text(0.5, 0.95, stats_text,
+                     ha='center', va='top',
+                     fontsize=10, family='monospace',
+                     transform=ax_stats.transAxes,
+                     bbox=dict(boxstyle='round,pad=1.5', 
+                              facecolor='lightcyan',
+                              edgecolor='darkblue',
+                              linewidth=2, alpha=0.9))
         
-        # ========== SOLUTION MATRIX VIEW ==========
-        ax_matrix = fig.add_subplot(gs[1, 2])
+        # Title at top
+        fig.suptitle(f'Knapsack Problem - {algorithm_name}', 
+                    fontsize=15, fontweight='bold', y=0.98)
         
-        # Show current solution as colored grid
-        solution_matrix = best_solution.reshape(-1, 1)
-        
-        ax_matrix.imshow(solution_matrix.T, cmap='RdYlGn', aspect='auto',
-                        interpolation='nearest', vmin=0, vmax=1)
-        ax_matrix.set_xlabel('Item Index', fontsize=10, fontweight='bold')
-        ax_matrix.set_title('Solution Vector', fontsize=12, fontweight='bold')
-        ax_matrix.set_yticks([])
-        
-        # Show only a subset of x-ticks if too many items
-        if n_items > 20:
-            tick_indices = np.linspace(0, n_items-1, 10, dtype=int)
-            ax_matrix.set_xticks(tick_indices)
-            ax_matrix.set_xticklabels(tick_indices)
-        
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
         return fig
     
     @staticmethod

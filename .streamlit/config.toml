@@ -1,0 +1,43 @@
+[theme]
+# Primary theme: "light" or "dark"
+base="light"
+
+# Primary accent color for interactive elements
+primaryColor="#667eea"
+
+# Background color for the main content area
+backgroundColor="#ffffff"
+
+# Background color used for the sidebar and most interactive widgets
+secondaryBackgroundColor="#f0f2f6"
+
+# Color used for almost all text
+textColor="#262730"
+
+# Font family for all text in the app, except code blocks
+# Options: "sans serif", "serif", or "monospace"
+font="sans serif"
+
+[server]
+# Enable or disable the ability to run the app in headless mode
+headless = false
+
+# Automatically rerun script when the file is modified on disk
+runOnSave = true
+
+# Enable CORS for remote access
+enableCORS = false
+
+# Enable or disable XSS protection
+enableXsrfProtection = true
+
+[browser]
+# Internet address where users should point their browsers to connect to the app
+# serverAddress = "localhost"
+
+# Port where users should point their browsers to connect to the app
+serverPort = 8501
+
+# Whether to send usage statistics to Streamlit
+gatherUsageStats = false
+

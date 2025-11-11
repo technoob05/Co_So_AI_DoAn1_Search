@@ -8,8 +8,10 @@ import time
 from matplotlib import cm
 import json
 from datetime import datetime
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from PIL import Image
+import os
 
-# Import các thuật toán
 from src.swarm_intelligence.pso import PSO
 from src.swarm_intelligence.aco import ACO
 from src.swarm_intelligence.abc import ABC
@@ -21,25 +23,26 @@ from src.traditional_search.simulated_annealing import SimulatedAnnealing
 from src.traditional_search.genetic_algorithm import GeneticAlgorithm
 from src.traditional_search.graph_search import BreadthFirstSearch, DepthFirstSearch, AStarSearch, GridWorld
 
-# Import bài toán
 from src.test_functions import get_test_function
 from src.discrete_problems.tsp import TSP, TSPSolver
 from src.discrete_problems.knapsack import Knapsack, KnapsackSolver
 from src.discrete_problems.graph_coloring import GraphColoring, GraphColoringSolver
 
-# Import visualization
 from src.visualization import OptimizationVisualizer
 from src.visualization_discrete import TSPVisualizer, KnapsackVisualizer, GraphColoringVisualizer, DiscreteComparisonVisualizer
 
-# Cấu hình trang
 st.set_page_config(
     page_title="Optimization Algorithms Comparison",
     page_icon="🔬",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "# Optimization Algorithms Visualization\nSo sánh Swarm Intelligence và Traditional Search"
+    }
 )
 
-# CSS tùy chỉnh
 st.markdown("""
 <style>
     .main-header {
@@ -85,15 +88,40 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# TIỆN ÍCH
-# ============================================================================
+# UTILS
+
+@st.cache_data
+def load_swarm_image(algorithm_name):
+    """Load swarm algorithm images"""
+    image_map = {
+        "PSO": "fish.png",
+        "ACO": "ant.png",
+        "ABC": "bee.png",
+        "Firefly": "firefly.png",
+        "Cuckoo": "cuckoo.png"
+    }
+    
+    if algorithm_name not in image_map:
+        return None
+    
+    image_path = os.path.join("assets", image_map[algorithm_name])
+    
+    if not os.path.exists(image_path):
+        return None
+    
+    try:
+        img = Image.open(image_path)
+        size = (55, 55) if algorithm_name == "Firefly" else (70, 70)
+        img = img.resize(size, Image.Resampling.LANCZOS)
+        return np.array(img)
+    except Exception as e:
+        print(f"Error loading image for {algorithm_name}: {e}")
+        return None
 
 @st.cache_data
 def get_algorithm_info():
-    """Thông tin về các thuật toán"""
+    """Algorithm information"""
     return {
-        # Swarm Intelligence
         "PSO": {
             "name": "Particle Swarm Optimization",
             "type": "swarm",
@@ -176,11 +204,9 @@ def get_algorithm_info():
     }
 
 def create_animated_3d_plot(func, particles, best_pos, best_score, iteration, algorithm_name, func_name):
-    """Tạo 3D plot với animation và 2D contour view từ trên xuống"""
-    # Tạo figure với 2 subplots
+    """Create 3D plot with 2D contour view"""
     fig = plt.figure(figsize=(16, 7))
     
-    # Tạo surface data
     x = np.linspace(func.bounds[0, 0], func.bounds[0, 1], 50)
     y = np.linspace(func.bounds[1, 0], func.bounds[1, 1], 50)
     X, Y = np.meshgrid(x, y)
@@ -190,44 +216,47 @@ def create_animated_3d_plot(func, particles, best_pos, best_score, iteration, al
         for j in range(len(y)):
             Z[j, i] = func(np.array([X[j, i], Y[j, i]]))
     
-    # ============ LEFT: 3D View ============
     ax1 = fig.add_subplot(121, projection='3d')
     
-    # Vẽ surface với transparency
     surf = ax1.plot_surface(X, Y, Z, cmap=cm.coolwarm, alpha=0.6,
                            antialiased=True, linewidth=0, zorder=1)
     
-    # Vẽ contour ở đáy
     ax1.contour(X, Y, Z, levels=15, cmap=cm.coolwarm, alpha=0.3,
                 offset=np.min(Z), zorder=0)
     
-    # Vẽ particles
+    swarm_img = load_swarm_image(algorithm_name)
+    
     if particles is not None and len(particles) > 0:
         particle_z = np.array([func(p) for p in particles])
         
-        # Màu sắc theo fitness (xanh lá = tốt, đỏ = xấu)
-        colors = plt.cm.RdYlGn_r((particle_z - particle_z.min()) / 
-                                 (particle_z.max() - particle_z.min() + 1e-10))
-        
-        ax1.scatter(particles[:, 0], particles[:, 1], particle_z,
-                   c=colors, s=100, marker='o', alpha=0.8,
-                   edgecolors='black', linewidths=1.5,
-                   label='Population', zorder=5)
+        if swarm_img is not None:
+            particle_size = 150 if algorithm_name == "Firefly" else 180
+            edge_width = 2.2 if algorithm_name == "Firefly" else 2.5
+            colors = plt.cm.RdYlGn_r((particle_z - particle_z.min()) / 
+                                     (particle_z.max() - particle_z.min() + 1e-10))
+            ax1.scatter(particles[:, 0], particles[:, 1], particle_z,
+                       c=colors, s=particle_size, marker='o', alpha=0.9,
+                       edgecolors='white', linewidths=edge_width,
+                       label=f'{algorithm_name} Agents', zorder=5)
+        else:
+            colors = plt.cm.RdYlGn_r((particle_z - particle_z.min()) / 
+                                     (particle_z.max() - particle_z.min() + 1e-10))
+            ax1.scatter(particles[:, 0], particles[:, 1], particle_z,
+                       c=colors, s=100, marker='o', alpha=0.8,
+                       edgecolors='black', linewidths=1.5,
+                       label='Population', zorder=5)
     
-    # Vẽ global best (sao đỏ lớn)
     if best_pos is not None:
         ax1.scatter([best_pos[0]], [best_pos[1]], [best_score],
                    c='red', marker='*', s=600,
                    edgecolors='darkred', linewidths=3,
                    label=f'Best (f={best_score:.4f})', zorder=10)
     
-    # Vẽ global optimum (sao xanh lá)
     ax1.scatter([0], [0], [func.global_optimum],
                c='lime', marker='*', s=700,
                edgecolors='darkgreen', linewidths=3,
                label=f'Global Optimum (f={func.global_optimum})', zorder=10)
     
-    # Thiết lập labels và title cho 3D
     ax1.set_xlabel('X₁', fontsize=11, fontweight='bold')
     ax1.set_ylabel('X₂', fontsize=11, fontweight='bold')
     ax1.set_zlabel('f(X)', fontsize=11, fontweight='bold')
@@ -237,57 +266,68 @@ def create_animated_3d_plot(func, particles, best_pos, best_score, iteration, al
     ax1.view_init(elev=25, azim=45 + iteration * 2)
     ax1.grid(True, alpha=0.3)
     
-    # ============ RIGHT: 2D Top-Down View ============
     ax2 = fig.add_subplot(122)
     
-    # Vẽ contour filled
     contourf = ax2.contourf(X, Y, Z, levels=30, cmap=cm.coolwarm, alpha=0.8)
-    # Vẽ contour lines
     contour = ax2.contour(X, Y, Z, levels=15, colors='black', alpha=0.3, linewidths=0.5)
     ax2.clabel(contour, inline=True, fontsize=8, fmt='%.1f')
     
-    # Vẽ particles (top-down view)
     if particles is not None and len(particles) > 0:
         particle_z = np.array([func(p) for p in particles])
-        colors = plt.cm.RdYlGn_r((particle_z - particle_z.min()) / 
-                                 (particle_z.max() - particle_z.min() + 1e-10))
         
-        ax2.scatter(particles[:, 0], particles[:, 1],
-                   c=colors, s=150, marker='o', alpha=0.9,
-                   edgecolors='black', linewidths=2,
-                   label='Population', zorder=5)
-        
-        # Vẽ trajectory trails (nếu có nhiều particles)
-        if len(particles) > 1:
-            for i in range(len(particles)):
-                ax2.plot([particles[i, 0]], [particles[i, 1]], 
-                        'o', markersize=3, alpha=0.3, color=colors[i])
+        if swarm_img is not None:
+            # Glow effect
+            glow_size = 250 if algorithm_name == "Firefly" else 300
+            colors_for_glow = plt.cm.RdYlGn_r((particle_z - particle_z.min()) / 
+                                              (particle_z.max() - particle_z.min() + 1e-10))
+            ax2.scatter(particles[:, 0], particles[:, 1],
+                       c=colors_for_glow, s=glow_size, marker='o', alpha=0.3,
+                       edgecolors='none', zorder=4)
+            
+            # Display images
+            for i, (px, py) in enumerate(particles):
+                zoom_level = 0.32 if algorithm_name == "Firefly" else 0.4
+                imagebox = OffsetImage(swarm_img, zoom=zoom_level)
+                ab = AnnotationBbox(imagebox, (px, py), frameon=False, pad=0, zorder=5)
+                ax2.add_artist(ab)
+            
+            ax2.scatter([], [], c='blue', s=200, marker='o', alpha=0.8,
+                       edgecolors='white', linewidths=2,
+                       label=f'{algorithm_name} Agents', zorder=5)
+        else:
+            colors = plt.cm.RdYlGn_r((particle_z - particle_z.min()) / 
+                                     (particle_z.max() - particle_z.min() + 1e-10))
+            
+            ax2.scatter(particles[:, 0], particles[:, 1],
+                       c=colors, s=150, marker='o', alpha=0.9,
+                       edgecolors='black', linewidths=2,
+                       label='Population', zorder=5)
+            
+            if len(particles) > 1:
+                for i in range(len(particles)):
+                    ax2.plot([particles[i, 0]], [particles[i, 1]], 
+                            'o', markersize=3, alpha=0.3, color=colors[i])
     
-    # Vẽ global best (sao đỏ)
     if best_pos is not None:
         ax2.scatter([best_pos[0]], [best_pos[1]],
                    c='red', marker='*', s=800,
                    edgecolors='darkred', linewidths=4,
                    label=f'Best', zorder=10)
         
-        # Vẽ vòng tròn xung quanh best
         circle = plt.Circle((best_pos[0], best_pos[1]), 
                            (func.bounds[0, 1] - func.bounds[0, 0]) * 0.05,
                            color='red', fill=False, linewidth=2, 
                            linestyle='--', alpha=0.5, zorder=9)
         ax2.add_patch(circle)
     
-    # Vẽ global optimum (sao xanh lá)
     ax2.scatter([0], [0],
                c='lime', marker='*', s=900,
                edgecolors='darkgreen', linewidths=4,
                label='Global Optimum', zorder=10)
     
-    # Vẽ X đánh dấu center
     ax2.plot([0], [0], 'x', color='darkgreen', markersize=15, 
             markeredgewidth=3, zorder=11)
     
-    # Thiết lập labels và title cho 2D
     ax2.set_xlabel('X₁', fontsize=11, fontweight='bold')
     ax2.set_ylabel('X₂', fontsize=11, fontweight='bold')
     ax2.set_title(f'Top-Down View (Contour)\n{func_name.capitalize()} Function',
@@ -296,30 +336,24 @@ def create_animated_3d_plot(func, particles, best_pos, best_score, iteration, al
     ax2.grid(True, alpha=0.2, linestyle='--')
     ax2.set_aspect('equal', adjustable='box')
     
-    # Colorbar cho 2D plot
     cbar = fig.colorbar(contourf, ax=ax2, shrink=0.8, aspect=20)
     cbar.set_label('f(X₁, X₂)', fontsize=10, fontweight='bold')
     
-    # Main title
     fig.suptitle(f'{algorithm_name} on {func_name.capitalize()} - Iteration {iteration}/{iteration}',
                 fontsize=15, fontweight='bold', y=0.98)
     
     plt.tight_layout()
     return fig
 
-# ============================================================================
-# SIDEBAR - ĐIỀU KHIỂN
-# ============================================================================
+# SIDEBAR
 
 st.sidebar.markdown("# ⚙️ Cấu Hình")
 
-# Tab chính với box style - sử dụng session state
 if 'main_tab' not in st.session_state:
     st.session_state.main_tab = "🎬 Visualization & Demo"
 
 st.sidebar.markdown("### Chọn chức năng:")
 
-# Custom box buttons
 tab_options = [
     {"name": "🎬 Visualization & Demo", "icon": "🎬", "desc": "Real-time visualization"},
     {"name": "📊 Comparison Dashboard", "icon": "📊", "desc": "So sánh thuật toán"},
@@ -327,10 +361,8 @@ tab_options = [
 ]
 
 for option in tab_options:
-    # Determine if selected
     is_selected = st.session_state.main_tab == option["name"]
     
-    # Box styling
     if is_selected:
         box_style = """
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -355,7 +387,6 @@ for option in tab_options:
         transition: all 0.3s;
         """
     
-    # Create clickable box
     if st.sidebar.button(
         f"{option['icon']} **{option['name'].replace(option['icon'], '').strip()}**",
         key=f"tab_{option['name']}",
@@ -372,35 +403,51 @@ st.sidebar.markdown("---")
 if main_tab == "🎬 Visualization & Demo":
     st.sidebar.markdown("### 🎯 Chọn Bài Toán")
     
-    problem_type = st.sidebar.selectbox(
+    # Cấp 1: Chọn loại bài toán chính
+    problem_category = st.sidebar.radio(
         "Loại bài toán:",
-        ["Continuous Optimization", "Discrete Optimization (TSP)", "Discrete Optimization (Knapsack)",
-         "Discrete Optimization (Graph Coloring)", "Path Finding (Grid World)"]
+        ["Continuous Optimization", "Discrete Optimization"],
+        help="Chọn loại bài toán tối ưu"
     )
     
-    if problem_type == "Continuous Optimization":
+    # Cấp 2: Chọn bài toán cụ thể (nếu là Discrete)
+    if problem_category == "Continuous Optimization":
+        problem_type = "Continuous Optimization"
+        
         function_name = st.sidebar.selectbox(
             "Test Function:",
-            ["sphere", "rastrigin", "rosenbrock", "ackley"]
+            ["Sphere", "Rastrigin", "Rosenbrock", "Ackley"]
         )
         
         dimensions = st.sidebar.slider("Số chiều (dimension):", 2, 10, 2)
         
-    elif problem_type == "Discrete Optimization (TSP)":
-        n_cities = st.sidebar.slider("Số thành phố:", 5, 30, 15)
+    else:  # Discrete Optimization
+        discrete_problem = st.sidebar.selectbox(
+            "Chọn bài toán cụ thể:",
+            ["TSP (Traveling Salesman)", "Knapsack", "Graph Coloring", "Path Finding (Grid World)"],
+            help="Chọn bài toán rời rạc cụ thể"
+        )
         
-    elif problem_type == "Discrete Optimization (Knapsack)":
-        n_items = st.sidebar.slider("Số items:", 10, 50, 20)
-        
-    elif problem_type == "Discrete Optimization (Graph Coloring)":
-        n_nodes = st.sidebar.slider("Số nodes:", 5, 30, 15)
-        edge_prob = st.sidebar.slider("Xác suất edge:", 0.1, 0.8, 0.3)
-        viz_update_freq = st.sidebar.slider("Visualization Update (mỗi N iterations):", 1, 10, 2, 
-                                           help="1 = update mỗi iteration (chậm), 5-10 = update ít hơn (nhanh hơn)")
-        
-    else:  # Path Finding
-        grid_size = st.sidebar.slider("Kích thước grid:", 10, 30, 20)
-        obstacle_prob = st.sidebar.slider("Xác suất vật cản:", 0.0, 0.4, 0.2)
+        # Map discrete_problem to problem_type for backward compatibility
+        if discrete_problem == "TSP (Traveling Salesman)":
+            problem_type = "Discrete Optimization (TSP)"
+            n_cities = st.sidebar.slider("Số thành phố:", 5, 30, 15)
+            
+        elif discrete_problem == "Knapsack":
+            problem_type = "Discrete Optimization (Knapsack)"
+            n_items = st.sidebar.slider("Số items:", 10, 50, 20)
+            
+        elif discrete_problem == "Graph Coloring":
+            problem_type = "Discrete Optimization (Graph Coloring)"
+            n_nodes = st.sidebar.slider("Số nodes:", 5, 30, 15)
+            edge_prob = st.sidebar.slider("Xác suất edge:", 0.1, 0.8, 0.3)
+            viz_update_freq = st.sidebar.slider("Visualization Update (mỗi N iterations):", 1, 10, 2, 
+                                               help="1 = update mỗi iteration (chậm), 5-10 = update ít hơn (nhanh hơn)")
+            
+        else:  # Path Finding
+            problem_type = "Path Finding (Grid World)"
+            grid_size = st.sidebar.slider("Kích thước grid:", 10, 30, 20)
+            obstacle_prob = st.sidebar.slider("Xác suất vật cản:", 0.0, 0.4, 0.2)
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 Chọn Thuật Toán")
@@ -518,9 +565,7 @@ if main_tab == "🎬 Visualization & Demo":
     
     run_button = st.sidebar.button("▶️ Run Animation", type="primary", use_container_width=True)
 
-# ============================================================================
-# NỘI DUNG CHÍNH
-# ============================================================================
+# MAIN CONTENT
 
 # Header đẹp hơn
 st.markdown("""
@@ -536,9 +581,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if main_tab == "🎬 Visualization & Demo":
-    # ========================================
-    # TAB Visualization & Demo
-    # ========================================
     st.markdown("""
     <div style='background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%); 
                 padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem; border-left: 5px solid #667eea;'>
@@ -548,11 +590,9 @@ if main_tab == "🎬 Visualization & Demo":
     """, unsafe_allow_html=True)
     
     if run_button:
-        # Khởi tạo bài toán
         if problem_type == "Continuous Optimization":
             func = get_test_function(function_name, dim=dimensions)
             
-            # Khởi tạo thuật toán
             if algorithm == "PSO":
                 algo = PSO(n_particles=population_size, dim=dimensions, max_iter=max_iter,
                           w=w, c1=c1, c2=c2, bounds=func.bounds)
@@ -581,11 +621,9 @@ if main_tab == "🎬 Visualization & Demo":
                                        mutation_rate=mutation_rate, elite_size=elite_size,
                                        bounds=func.bounds)
             
-            # Chạy với animation (chỉ cho 2D)
             if dimensions == 2:
                 st.success(f"✅ Đang chạy {algorithm} trên {function_name.upper()}...")
                 
-                # Layout
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
@@ -600,20 +638,32 @@ if main_tab == "🎬 Visualization & Demo":
                     st.markdown("### 📈 Convergence")
                     convergence_placeholder = st.empty()
                 
-                # Progress bar
                 progress_bar = st.progress(0)
                 
-                # Khởi tạo thuật toán
                 algo.initialize()
+                
+                if algorithm == "Hill Climbing":
+                    algo.best_score = func(algo.current_solution)
+                    algo.best_solution = algo.current_solution.copy()
+                elif algorithm == "Simulated Annealing":
+                    algo.current_score = func(algo.current_solution)
+                    algo.best_score = algo.current_score
+                    algo.best_solution = algo.current_solution.copy()
+                elif algorithm == "Genetic Algorithm":
+                    algo.population = np.random.uniform(
+                        algo.bounds[:, 0], algo.bounds[:, 1], 
+                        (algo.population_size, algo.dim)
+                    )
+                    fitness = np.array([func(ind) for ind in algo.population])
+                    best_idx = np.argmin(fitness)
+                    algo.best_solution = algo.population[best_idx].copy()
+                    algo.best_score = fitness[best_idx]
+                
                 best_scores_history = []
                 
-                # Animation loop
                 for iteration in range(max_iter):
-                    # Một bước iteration
                     if algorithm in ["PSO", "ACO", "ABC", "Firefly", "Cuckoo"]:
-                        # Swarm algorithms - step by step animation
                         if algorithm == "PSO":
-                            # PSO Step
                             scores = np.array([func(pos) for pos in algo.positions])
                             improved = scores < algo.personal_best_scores
                             algo.personal_best_scores[improved] = scores[improved]
@@ -639,7 +689,6 @@ if main_tab == "🎬 Visualization & Demo":
                             best_score = algo.global_best_score
                         
                         elif algorithm == "ACO":
-                            # ACO Step
                             new_solutions = np.zeros((algo.n_ants, algo.dim))
                             new_scores = np.zeros(algo.n_ants)
                             
@@ -661,7 +710,6 @@ if main_tab == "🎬 Visualization & Demo":
                                 new_solutions[ant] = solution
                                 new_scores[ant] = func(solution)
                             
-                            # Update archive
                             combined_solutions = np.vstack([algo.archive, new_solutions])
                             combined_scores = np.concatenate([algo.archive_scores, new_scores])
                             sorted_indices = np.argsort(combined_scores)
@@ -677,7 +725,6 @@ if main_tab == "🎬 Visualization & Demo":
                             best_score = algo.best_score
                         
                         elif algorithm == "ABC":
-                            # ABC Step - Employed Bee Phase
                             for i in range(algo.n_bees):
                                 phi = np.random.uniform(-1, 1, algo.dim)
                                 neighbor = np.random.choice([j for j in range(algo.n_bees) if j != i])
@@ -694,7 +741,6 @@ if main_tab == "🎬 Visualization & Demo":
                                 else:
                                     algo.trials[i] += 1
                             
-                            # Onlooker Bee Phase
                             total_fitness = np.sum(algo.fitness)
                             probabilities = algo.fitness / total_fitness if total_fitness > 0 else np.ones(algo.n_bees) / algo.n_bees
                             
@@ -713,13 +759,11 @@ if main_tab == "🎬 Visualization & Demo":
                                     algo.fitness[i] = new_fitness
                                     algo.trials[i] = 0
                             
-                            # Scout Bee Phase
                             for i in range(algo.n_bees):
                                 if algo.trials[i] >= algo.limit:
                                     algo.food_sources[i] = np.random.uniform(algo.bounds[:, 0], algo.bounds[:, 1], algo.dim)
                                     algo.trials[i] = 0
                             
-                            # Update best
                             scores = np.array([func(source) for source in algo.food_sources])
                             best_idx = np.argmin(scores)
                             if scores[best_idx] < algo.best_score:
@@ -731,29 +775,23 @@ if main_tab == "🎬 Visualization & Demo":
                             best_score = algo.best_score
                         
                         elif algorithm == "Firefly":
-                            # Firefly Step - FIXED: Update intensity sau khi di chuyển hết
                             alpha_current = algo.alpha * (0.95 ** iteration)
                             
-                            # Store original intensities for comparison
                             original_intensity = algo.light_intensity.copy()
                             
                             for i in range(algo.n_fireflies):
                                 for j in range(algo.n_fireflies):
-                                    # So sánh với original intensity, không phải intensity đã update
                                     if original_intensity[j] < original_intensity[i]:
                                         r = np.sqrt(np.sum((algo.fireflies[i] - algo.fireflies[j]) ** 2))
                                         beta = algo.beta0 * np.exp(-algo.gamma * r ** 2)
                                         epsilon = np.random.uniform(-0.5, 0.5, algo.dim)
                                         
-                                        # Di chuyển firefly i về phía firefly j
                                         algo.fireflies[i] = algo.fireflies[i] + beta * (algo.fireflies[j] - algo.fireflies[i]) + \
                                                            alpha_current * epsilon
                                         algo.fireflies[i] = np.clip(algo.fireflies[i], algo.bounds[:, 0], algo.bounds[:, 1])
                             
-                            # Evaluate tất cả positions mới SAU KHI đã di chuyển hết
                             algo.light_intensity = np.array([func(ff) for ff in algo.fireflies])
                             
-                            # Update best
                             best_idx = np.argmin(algo.light_intensity)
                             if algo.light_intensity[best_idx] < algo.best_score:
                                 algo.best_score = algo.light_intensity[best_idx]
@@ -764,11 +802,9 @@ if main_tab == "🎬 Visualization & Demo":
                             best_score = algo.best_score
                         
                         elif algorithm == "Cuckoo":
-                            # Cuckoo Step - Lévy flights
                             for i in range(algo.n_nests):
                                 idx = np.random.randint(0, algo.n_nests)
                                 
-                                # Lévy flight
                                 sigma_u = (np.math.gamma(1 + algo.beta) * np.sin(np.pi * algo.beta / 2) / \
                                           (np.math.gamma((1 + algo.beta) / 2) * algo.beta * 2 ** ((algo.beta - 1) / 2))) ** (1 / algo.beta)
                                 u = np.random.normal(0, sigma_u, algo.dim)
@@ -784,7 +820,6 @@ if main_tab == "🎬 Visualization & Demo":
                                     algo.nests[j] = new_nest
                                     algo.fitness[j] = new_fitness
                             
-                            # Abandon worst nests
                             n_abandon = int(algo.pa * algo.n_nests)
                             worst_indices = np.argsort(algo.fitness)[-n_abandon:]
                             
@@ -804,39 +839,101 @@ if main_tab == "🎬 Visualization & Demo":
                             best_pos = algo.best_nest.copy()
                             best_score = algo.best_score
                             
-                    elif algorithm in ["Hill Climbing", "Simulated Annealing"]:
-                        # Single-point algorithms - show trajectory
-                        if iteration == 0:
-                            best_pos, best_score = algo.optimize(func, verbose=False)
-                            best_scores_history = algo.best_scores_history
-                            # Show final position
-                            particles = np.array([best_pos])
-                            break
+                    elif algorithm == "Hill Climbing":
+                        # Manual step-by-step for animation
+                        neighbor = algo.current_solution + np.random.uniform(-algo.step_size, algo.step_size, algo.dim)
+                        neighbor = np.clip(neighbor, algo.bounds[:, 0], algo.bounds[:, 1])
+                        neighbor_score = func(neighbor)
+                        
+                        if neighbor_score < algo.best_score:
+                            algo.current_solution = neighbor.copy()
+                            algo.best_score = neighbor_score
+                            algo.best_solution = neighbor.copy()
+                        
+                        particles = np.array([algo.current_solution])
+                        best_pos = algo.best_solution.copy()
+                        best_score = algo.best_score
+                    
+                    elif algorithm == "Simulated Annealing":
+                        # Manual step-by-step for animation
+                        neighbor = algo.current_solution + np.random.uniform(-algo.step_size, algo.step_size, algo.dim)
+                        neighbor = np.clip(neighbor, algo.bounds[:, 0], algo.bounds[:, 1])
+                        neighbor_score = func(neighbor)
+                        
+                        # Acceptance criterion
+                        delta = neighbor_score - algo.current_score
+                        if delta < 0 or np.random.rand() < np.exp(-delta / algo.temperature):
+                            algo.current_solution = neighbor.copy()
+                            algo.current_score = neighbor_score
+                            
+                            if neighbor_score < algo.best_score:
+                                algo.best_score = neighbor_score
+                                algo.best_solution = neighbor.copy()
+                        
+                        # Cool down
+                        algo.temperature *= algo.alpha
+                        
+                        particles = np.array([algo.current_solution])
+                        best_pos = algo.best_solution.copy()
+                        best_score = algo.best_score
                         
                     elif algorithm == "Genetic Algorithm":
-                        # Genetic Algorithm
-                        if iteration == 0:
-                            best_pos, best_score = algo.optimize(func, verbose=False)
-                            best_scores_history = algo.best_scores_history
-                            particles = algo.population[:20] if len(algo.population) > 20 else algo.population
-                            break
+                        # Manual step-by-step for animation
+                        # Evaluate fitness
+                        fitness = np.array([func(ind) for ind in algo.population])
+                        
+                        # Selection (tournament)
+                        new_population = []
+                        for _ in range(algo.population_size):
+                            tournament = np.random.choice(algo.population_size, 3, replace=False)
+                            winner = algo.population[tournament[np.argmin(fitness[tournament])]]
+                            new_population.append(winner.copy())
+                        
+                        # Crossover
+                        for i in range(0, algo.population_size - 1, 2):
+                            if np.random.rand() < algo.crossover_rate:
+                                alpha = np.random.rand(algo.dim)
+                                new_population[i] = alpha * new_population[i] + (1 - alpha) * new_population[i + 1]
+                                new_population[i + 1] = alpha * new_population[i + 1] + (1 - alpha) * new_population[i]
+                        
+                        # Mutation
+                        for i in range(algo.population_size):
+                            if np.random.rand() < algo.mutation_rate:
+                                mutation = np.random.uniform(-1, 1, algo.dim)
+                                new_population[i] = new_population[i] + mutation
+                                new_population[i] = np.clip(new_population[i], algo.bounds[:, 0], algo.bounds[:, 1])
+                        
+                        # Elitism
+                        elite_indices = np.argsort(fitness)[:algo.elite_size]
+                        for idx, elite_idx in enumerate(elite_indices):
+                            new_population[idx] = algo.population[elite_idx].copy()
+                        
+                        algo.population = np.array(new_population)
+                        
+                        # Update best
+                        current_fitness = np.array([func(ind) for ind in algo.population])
+                        best_idx = np.argmin(current_fitness)
+                        if current_fitness[best_idx] < algo.best_score:
+                            algo.best_score = current_fitness[best_idx]
+                            algo.best_solution = algo.population[best_idx].copy()
+                        
+                        particles = algo.population[:20] if len(algo.population) > 20 else algo.population
+                        best_pos = algo.best_solution.copy()
+                        best_score = algo.best_score
                     
                     best_scores_history.append(best_score)
                     
-                    # Update metrics
                     iteration_metric.metric("Iteration", f"{iteration + 1}/{max_iter}")
                     score_metric.metric("Best Score", f"{best_score:.8f}")
                     gap = abs(best_score - func.global_optimum)
                     gap_metric.metric("Gap to Optimum", f"{gap:.8f}")
                     
-                    # Update 3D plot
                     if dimensions == 2:
                         fig = create_animated_3d_plot(func, particles, best_pos, best_score,
                                                      iteration + 1, algorithm, function_name)
                         plot_placeholder.pyplot(fig)
                         plt.close(fig)
                     
-                    # Update convergence plot
                     if len(best_scores_history) > 1:
                         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
                         ax_conv.plot(best_scores_history, 'b-', linewidth=2.5, label='Best Score')
@@ -851,13 +948,10 @@ if main_tab == "🎬 Visualization & Demo":
                         convergence_placeholder.pyplot(fig_conv)
                         plt.close(fig_conv)
                     
-                    # Update progress
                     progress_bar.progress((iteration + 1) / max_iter)
                     
-                    # Delay
                     time.sleep(animation_speed)
                 
-                # Final results
                 st.markdown("---")
                 st.markdown('<div class="success-box">', unsafe_allow_html=True)
                 st.markdown("## 🎉 Kết Quả Cuối Cùng")
@@ -878,7 +972,6 @@ if main_tab == "🎬 Visualization & Demo":
                 
                 st.markdown('</div>', unsafe_allow_html=True)
                 
-                # Best position
                 with st.expander("🎯 Chi tiết Best Position"):
                     st.write(f"**Best Position:** {best_pos}")
                     st.write(f"**Dimensions:** {dimensions}")
@@ -886,7 +979,6 @@ if main_tab == "🎬 Visualization & Demo":
                     st.write(f"**Algorithm:** {algorithm}")
             
             else:
-                # Cho dimension > 2, chỉ chạy và hiển thị kết quả
                 st.info(f"Đang chạy {algorithm} trên {function_name.upper()} với {dimensions} chiều...")
                 
                 with st.spinner("Optimizing..."):
@@ -895,11 +987,9 @@ if main_tab == "🎬 Visualization & Demo":
                 
                 st.success("✅ Hoàn thành!")
                 
-                # Results
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
-                    # Convergence plot
                     fig, ax = plt.subplots(figsize=(9, 5))
                     ax.plot(history['best_scores'], 'b-', linewidth=2.5, label='Best Score')
                     ax.axhline(y=func.global_optimum, color='r', linestyle='--',
@@ -931,15 +1021,10 @@ if main_tab == "🎬 Visualization & Demo":
                     st.write(best_pos)
         
         elif problem_type == "Discrete Optimization (TSP)":
-            # ========================================
-            # TSP VISUALIZATION với ANIMATION CHI TIẾT
-            # ========================================
-            
             tsp = TSP(n_cities=n_cities, seed=42)
             
             st.success(f"✅ Đang chạy {algorithm} trên TSP với {n_cities} thành phố...")
             
-            # Layout với multiple panels
             col1, col2 = st.columns([2, 1])
             
             with col1:
@@ -954,30 +1039,24 @@ if main_tab == "🎬 Visualization & Demo":
                 st.markdown("### 📈 Progress")
                 convergence_placeholder = st.empty()
             
-            # Progress bar
             progress_bar = st.progress(0)
             
-            # Khởi tạo thuật toán với animation mode
             tour_history = []
             distance_history = []
             
             if algorithm == "Genetic Algorithm":
-                # GA with step-by-step animation
                 population_size_tsp = 50
                 
-                # Initialize population
                 population = [np.random.permutation(n_cities).tolist() 
                              for _ in range(population_size_tsp)]
                 
                 best_tour = min(population, key=lambda t: tsp.evaluate(t))
                 best_distance = tsp.evaluate(best_tour)
                 
-                # Set default max_iter if not exists
                 if 'max_iter' not in locals():
                     max_iter = 100
                 
                 for iteration in range(max_iter):
-                    # Tournament selection
                     new_population = []
                     for _ in range(population_size_tsp):
                         tournament = np.random.choice(population_size_tsp, 3, replace=False)
@@ -985,10 +1064,8 @@ if main_tab == "🎬 Visualization & Demo":
                                    key=lambda t: tsp.evaluate(t))
                         new_population.append(winner[:])
                     
-                    # Crossover (OX crossover)
                     for i in range(0, population_size_tsp-1, 2):
                         if np.random.rand() < crossover_rate:
-                            # Order crossover
                             parent1, parent2 = new_population[i], new_population[i+1]
                             start, end = sorted(np.random.choice(n_cities, 2, replace=False))
                             
@@ -999,19 +1076,16 @@ if main_tab == "🎬 Visualization & Demo":
                             
                             new_population[i] = child1
                     
-                    # Mutation (swap mutation)
-                    last_mutated_city = None  # Track city đang được mutate
+                    last_mutated_city = None
                     for i in range(population_size_tsp):
                         if np.random.rand() < mutation_rate:
                             idx1, idx2 = np.random.choice(n_cities, 2, replace=False)
                             new_population[i][idx1], new_population[i][idx2] = \
                                 new_population[i][idx2], new_population[i][idx1]
-                            # Track last mutated city (actual city, not index)
                             last_mutated_city = new_population[i][idx1]
                     
                     population = new_population
                     
-                    # Update best
                     current_best = min(population, key=lambda t: tsp.evaluate(t))
                     current_distance = tsp.evaluate(current_best)
                     
@@ -1022,16 +1096,14 @@ if main_tab == "🎬 Visualization & Demo":
                     tour_history.append(best_tour[:])
                     distance_history.append(best_distance)
                     
-                    # Update metrics
                     iteration_metric.metric("Iteration", f"{iteration + 1}/{max_iter}")
                     distance_metric.metric("Best Distance", f"{best_distance:.2f}")
                     
                     improvement = distance_history[0] - best_distance if len(distance_history) > 0 else 0
                     improvement_metric.metric("Improvement", f"{improvement:.2f}")
                     
-                    # Update visualization
-                    if iteration % max(1, max_iter // 50) == 0 or iteration == max_iter - 1:
-                        # Show population tours for visualization
+                    viz_frequency = max(1, max_iter // 40)
+                    if iteration % viz_frequency == 0 or iteration == max_iter - 1 or iteration < 5:
                         population_sample = population[:10] if len(population) > 10 else population
                         
                         fig = TSPVisualizer.create_tsp_animation_frame(
@@ -1041,13 +1113,12 @@ if main_tab == "🎬 Visualization & Demo":
                             iteration=iteration + 1,
                             algorithm_name=algorithm,
                             population_tours=population_sample,
-                            current_city=last_mutated_city,  # 🔴 HIGHLIGHT city đang mutate!
-                            tour_history=distance_history  # Pass history for progress chart
+                            current_city=last_mutated_city,
+                            tour_history=distance_history
                         )
                         plot_placeholder.pyplot(fig)
                         plt.close(fig)
                     
-                    # Update convergence plot
                     if len(distance_history) > 1:
                         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
                         ax_conv.plot(distance_history, 'b-', linewidth=2.5, label='Best Distance')
@@ -1064,86 +1135,96 @@ if main_tab == "🎬 Visualization & Demo":
                     time.sleep(animation_speed)
             
             else:
-                # Local search algorithms (Hill Climbing, Simulated Annealing) với ANIMATION
                 if 'max_iter' not in locals():
                     max_iter = 100
                 
-                # Initialize with nearest neighbor
                 best_tour, _ = TSPSolver.nearest_neighbor(tsp)
                 best_distance = tsp.evaluate(best_tour)
                 distance_history = [best_distance]
                 
-                # Initialize temperature for SA
                 if algorithm == "Simulated Annealing":
                     temperature = initial_temp if 'initial_temp' in locals() else 100.0
                     alpha_cooling = cooling_rate if 'cooling_rate' in locals() else 0.95
                 
-                # Animation loop with 2-opt improvement
+                no_improvement_count = 0
+                max_no_improvement = 10
+                
                 for iteration in range(max_iter):
                     improved = False
                     
-                    # Try 2-opt swaps
                     swap_city_i = None
                     swap_city_j = None
                     
-                    for i in range(n_cities - 1):
-                        for j in range(i + 2, min(n_cities, i + 5)):  # Limit search for speed
-                            # Try 2-opt swap
-                            new_tour = best_tour[:]
-                            new_tour[i:j] = list(reversed(new_tour[i:j]))
-                            new_distance = tsp.evaluate(new_tour)
-                            
-                            # Hill Climbing: accept if better
-                            if algorithm == "Hill Climbing":
-                                if new_distance < best_distance:
-                                    best_tour = new_tour
-                                    best_distance = new_distance
-                                    improved = True
-                                    swap_city_i, swap_city_j = best_tour[i], best_tour[j-1]
-                                    break
-                            
-                            # Simulated Annealing: accept with probability
-                            else:  # Simulated Annealing
-                                delta = new_distance - best_distance
-                                if delta < 0 or np.random.rand() < np.exp(-delta / temperature):
-                                    best_tour = new_tour
-                                    best_distance = new_distance
-                                    improved = True
-                                    swap_city_i, swap_city_j = best_tour[i], best_tour[j-1]
-                                    break
-                        
-                        if improved:
-                            break
+                    n_swap_tries = 8 if algorithm == "Hill Climbing" else 5
                     
-                    # Cool down temperature for SA
+                    for try_idx in range(n_swap_tries):
+                        i = np.random.randint(0, n_cities - 2)
+                        j = np.random.randint(i + 2, min(n_cities, i + 10))
+                        
+                        current_swap_cities = [best_tour[i], best_tour[j-1] if j > 0 else best_tour[-1]]
+                        
+                        new_tour = best_tour[:]
+                        new_tour[i:j] = list(reversed(new_tour[i:j]))
+                        new_distance = tsp.evaluate(new_tour)
+                        
+                        show_this_try = (try_idx % 2 == 0) or (new_distance < best_distance)
+                        
+                        if algorithm in ["Hill Climbing", "Simulated Annealing"] and show_this_try:
+                            fig = TSPVisualizer.create_tsp_animation_frame(
+                                tsp, 
+                                current_tour=new_tour,
+                                best_tour=best_tour,
+                                iteration=iteration + 1,
+                                algorithm_name=f"{algorithm} - Swap City {current_swap_cities[0]} ↔ {current_swap_cities[1]}",
+                                current_city=current_swap_cities[0],
+                                tour_history=distance_history if len(distance_history) > 0 else [best_distance]
+                            )
+                            plot_placeholder.pyplot(fig)
+                            plt.close(fig)
+                            time.sleep(animation_speed * 0.4)
+                        
+                        if algorithm == "Hill Climbing":
+                            if new_distance < best_distance:
+                                best_tour = new_tour
+                                best_distance = new_distance
+                                improved = True
+                                swap_city_i, swap_city_j = current_swap_cities[0], current_swap_cities[1]
+                                no_improvement_count = 0
+                                break
+                        
+                        else:  # Simulated Annealing
+                            delta = new_distance - best_distance
+                            if delta < 0 or np.random.rand() < np.exp(-delta / temperature):
+                                best_tour = new_tour
+                                best_distance = new_distance
+                                improved = True
+                                swap_city_i, swap_city_j = current_swap_cities[0], current_swap_cities[1]
+                                break
+                    
+                    if algorithm == "Hill Climbing" and not improved:
+                        no_improvement_count += 1
+                    
                     if algorithm == "Simulated Annealing":
                         temperature *= alpha_cooling
                     
                     distance_history.append(best_distance)
                     
-                    # Update metrics
                     iteration_metric.metric("Iteration", f"{iteration + 1}/{max_iter}")
                     distance_metric.metric("Best Distance", f"{best_distance:.2f}")
                     
                     improvement = distance_history[0] - best_distance
                     improvement_metric.metric("Improvement", f"{improvement:.2f}")
                     
-                    # Update visualization every N iterations or at end
-                    if iteration % max(1, max_iter // 20) == 0 or iteration == max_iter - 1:
-                        # Highlight city being swapped
-                        current_city = swap_city_i if swap_city_i is not None else None
-                        
-                        fig = TSPVisualizer.create_tsp_animation_frame(
-                            tsp, best_tour, best_tour,
-                            iteration=iteration + 1,
-                            algorithm_name=algorithm,
-                            current_city=current_city,  # 🔴 Highlight city being processed
-                            tour_history=distance_history  # Pass history for progress chart
-                        )
-                        plot_placeholder.pyplot(fig)
-                        plt.close(fig)
+                    fig = TSPVisualizer.create_tsp_animation_frame(
+                        tsp, best_tour, best_tour,
+                        iteration=iteration + 1,
+                        algorithm_name=algorithm,
+                        current_city=swap_city_i if swap_city_i is not None else None,
+                        tour_history=distance_history
+                    )
+                    plot_placeholder.pyplot(fig)
+                    plt.close(fig)
                     
-                    # Update convergence plot
                     if len(distance_history) > 1:
                         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
                         ax_conv.plot(distance_history, 'b-', linewidth=2.5, label='Best Distance')
@@ -1159,11 +1240,10 @@ if main_tab == "🎬 Visualization & Demo":
                     progress_bar.progress((iteration + 1) / max_iter)
                     time.sleep(animation_speed)
                     
-                    # Early stopping if no improvement
-                    if algorithm == "Hill Climbing" and not improved:
+                    if algorithm == "Hill Climbing" and no_improvement_count >= max_no_improvement:
+                        st.info(f"🛑 Hill Climbing converged after {iteration + 1} iterations (no improvement for {max_no_improvement} iterations)")
                         break
             
-            # Final results
             st.markdown("---")
             st.markdown('<div class="success-box">', unsafe_allow_html=True)
             st.markdown("## 🎉 TSP Solved!")
@@ -1182,24 +1262,63 @@ if main_tab == "🎬 Visualization & Demo":
             
             st.markdown('</div>', unsafe_allow_html=True)
             
-            with st.expander("🗺️ Best Tour Details"):
-                st.write(f"**Tour Sequence:** {' → '.join(map(str, best_tour))}")
+            # === HIỂN THỊ BEST SOLUTION RÕ RÀNG ===
+            st.markdown("### 🏆 Best Solution Found:")
+            
+            col_viz, col_info = st.columns([2, 1])
+            
+            with col_viz:
+                fig_final = TSPVisualizer.create_tsp_animation_frame(
+                    tsp, 
+                    current_tour=best_tour,
+                    best_tour=best_tour,
+                    iteration=len(distance_history) if distance_history else max_iter,
+                    algorithm_name=f"✅ BEST TOUR - {algorithm}",
+                    tour_history=distance_history
+                )
+                st.pyplot(fig_final)
+                plt.close(fig_final)
+            
+            with col_info:
+                st.markdown("#### 📋 Tour Details")
+                st.write(f"**🎯 Best Distance:** `{best_distance:.2f}`")
+                
+                if distance_history:
+                    st.write(f"**📍 Initial Distance:** `{distance_history[0]:.2f}`")
+                    st.write(f"**📈 Improvement:** `{distance_history[0] - best_distance:.2f}`")
+                    st.write(f"**📊 Iterations:** `{len(distance_history)}`")
+                
+                st.write(f"**🏙️ Cities:** `{n_cities}`")
+                
+                st.markdown("---")
+                st.markdown("**🗺️ Tour Sequence:**")
+                
+                tour_str = ""
+                for i, city in enumerate(best_tour):
+                    if i % 5 == 0 and i > 0:
+                        tour_str += "\n"
+                    tour_str += f"`{city}` → "
+                tour_str += f"`{best_tour[0]}`"
+                
+                st.markdown(tour_str)
+            
+            with st.expander("📊 Detailed Statistics"):
+                st.write(f"**Full Tour Sequence:** {' → '.join(map(str, best_tour))} → {best_tour[0]}")
                 st.write(f"**Total Distance:** {best_distance:.2f}")
                 st.write(f"**Cities Visited:** {len(best_tour)}")
                 if distance_history:
                     st.write(f"**Initial Distance:** {distance_history[0]:.2f}")
-                    st.write(f"**Iterations:** {len(distance_history)}")
+                    st.write(f"**Final Distance:** {best_distance:.2f}")
+                    st.write(f"**Total Improvement:** {distance_history[0] - best_distance:.2f}")
+                    st.write(f"**Improvement Percentage:** {improvement_pct:.2f}%")
+                    st.write(f"**Total Iterations:** {len(distance_history)}")
+                    st.write(f"**Average Distance per Iteration:** {np.mean(distance_history):.2f}")
         
         elif problem_type == "Discrete Optimization (Knapsack)":
-            # ========================================
-            # KNAPSACK VISUALIZATION với ANIMATION CHI TIẾT
-            # ========================================
-            
             knapsack = Knapsack(n_items=n_items, seed=42)
             
             st.success(f"✅ Đang chạy {algorithm} trên Knapsack với {n_items} items...")
             
-            # Layout
             col1, col2 = st.columns([2, 1])
             
             with col1:
@@ -1214,23 +1333,18 @@ if main_tab == "🎬 Visualization & Demo":
                 st.markdown("### 📈 Progress")
                 convergence_placeholder = st.empty()
             
-            # Progress bar
             progress_bar = st.progress(0)
             
-            # Initialize
             value_history = []
             
             if 'max_iter' not in locals():
                 max_iter = 100
             
             if algorithm == "Genetic Algorithm":
-                # GA for Knapsack
                 population_size_kp = 50
                 
-                # Initialize population
                 population = [np.random.randint(0, 2, n_items) for _ in range(population_size_kp)]
                 
-                # Make sure initial solutions are valid
                 for i in range(population_size_kp):
                     while not knapsack.is_valid(population[i]):
                         # Remove random item
@@ -1244,7 +1358,6 @@ if main_tab == "🎬 Visualization & Demo":
                 best_value = knapsack.get_value(best_solution)
                 
                 for iteration in range(max_iter):
-                    # Selection
                     fitness = [knapsack.get_value(s) if knapsack.is_valid(s) else 0 for s in population]
                     new_population = []
                     
@@ -1253,20 +1366,17 @@ if main_tab == "🎬 Visualization & Demo":
                         winner = tournament[np.argmax([fitness[i] for i in tournament])]
                         new_population.append(population[winner].copy())
                     
-                    # Crossover
                     for i in range(0, population_size_kp-1, 2):
                         if np.random.rand() < crossover_rate:
                             point = np.random.randint(1, n_items-1)
                             new_population[i][point:], new_population[i+1][point:] = \
                                 new_population[i+1][point:].copy(), new_population[i][point:].copy()
                     
-                    # Mutation
                     for i in range(population_size_kp):
                         if np.random.rand() < mutation_rate:
                             idx = np.random.randint(0, n_items)
                             new_population[i][idx] = 1 - new_population[i][idx]
                     
-                    # Repair invalid solutions
                     for i in range(population_size_kp):
                         while not knapsack.is_valid(new_population[i]):
                             ones = np.where(new_population[i] == 1)[0]
@@ -1277,7 +1387,6 @@ if main_tab == "🎬 Visualization & Demo":
                     
                     population = new_population
                     
-                    # Update best
                     fitness = [knapsack.get_value(s) if knapsack.is_valid(s) else 0 for s in population]
                     current_best_idx = np.argmax(fitness)
                     current_value = fitness[current_best_idx]
@@ -1293,7 +1402,6 @@ if main_tab == "🎬 Visualization & Demo":
                     value_metric.metric("Best Value", f"{best_value:.0f}")
                     weight_metric.metric("Weight", f"{knapsack.get_weight(best_solution):.0f}/{knapsack.capacity:.0f}")
                     
-                    # Update visualization
                     if iteration % max(1, max_iter // 50) == 0 or iteration == max_iter - 1:
                         fig = KnapsackVisualizer.create_knapsack_animation_frame(
                             knapsack,
@@ -1323,24 +1431,19 @@ if main_tab == "🎬 Visualization & Demo":
                     time.sleep(animation_speed)
             
             elif algorithm in ["Hill Climbing", "Simulated Annealing"]:
-                # Local search với ANIMATION
-                # Start with greedy solution
                 best_solution, _ = KnapsackSolver.greedy_ratio(knapsack)
                 best_value = knapsack.get_value(best_solution)
                 value_history = [best_value]
                 
-                # Initialize temperature for SA
                 if algorithm == "Simulated Annealing":
                     temperature = initial_temp if 'initial_temp' in locals() else 100.0
                     alpha_cooling = cooling_rate if 'cooling_rate' in locals() else 0.95
                 
                 for iteration in range(max_iter):
-                    # Generate neighbor by flipping a random bit
                     neighbor = best_solution.copy()
                     flip_idx = np.random.randint(0, n_items)
                     neighbor[flip_idx] = 1 - neighbor[flip_idx]
                     
-                    # Repair if invalid
                     while not knapsack.is_valid(neighbor):
                         ones = np.where(neighbor == 1)[0]
                         if len(ones) > 0:
@@ -1350,15 +1453,13 @@ if main_tab == "🎬 Visualization & Demo":
                     
                     neighbor_value = knapsack.get_value(neighbor)
                     
-                    # Hill Climbing: accept if better
                     if algorithm == "Hill Climbing":
                         if neighbor_value > best_value:
                             best_solution = neighbor
                             best_value = neighbor_value
                     
-                    # Simulated Annealing: accept with probability
                     else:
-                        delta = best_value - neighbor_value  # Maximize
+                        delta = best_value - neighbor_value
                         if delta < 0 or np.random.rand() < np.exp(-delta / temperature):
                             best_solution = neighbor
                             best_value = neighbor_value
@@ -1371,7 +1472,6 @@ if main_tab == "🎬 Visualization & Demo":
                     value_metric.metric("Best Value", f"{best_value:.0f}")
                     weight_metric.metric("Weight", f"{knapsack.get_weight(best_solution):.0f}/{knapsack.capacity:.0f}")
                     
-                    # Update visualization
                     if iteration % max(1, max_iter // 20) == 0 or iteration == max_iter - 1:
                         fig = KnapsackVisualizer.create_knapsack_animation_frame(
                             knapsack,
@@ -1400,7 +1500,6 @@ if main_tab == "🎬 Visualization & Demo":
                     time.sleep(animation_speed)
             
             else:
-                # Greedy algorithm (fast)
                 with st.spinner(f"Running {algorithm}..."):
                     best_solution, best_value = KnapsackSolver.greedy_ratio(knapsack)
                     value_history = [best_value]
@@ -1413,7 +1512,6 @@ if main_tab == "🎬 Visualization & Demo":
                 plot_placeholder.pyplot(fig)
                 plt.close(fig)
             
-            # Final results
             st.markdown("---")
             st.markdown('<div class="success-box">', unsafe_allow_html=True)
             st.markdown("## 🎉 Knapsack Solved!")
@@ -1431,25 +1529,71 @@ if main_tab == "🎬 Visualization & Demo":
             
             st.markdown('</div>', unsafe_allow_html=True)
             
-            with st.expander("📦 Solution Details"):
+            # === HIỂN THỊ BEST SOLUTION RÕ RÀNG ===
+            st.markdown("### 🏆 Best Solution Found:")
+            
+            col_viz, col_info = st.columns([2, 1])
+            
+            with col_viz:
+                # Visualization FINAL của best solution
+                fig_final = KnapsackVisualizer.create_knapsack_animation_frame(
+                    knapsack,
+                    solution=best_solution,
+                    best_solution=best_solution,
+                    iteration=len(value_history) if 'value_history' in locals() and value_history else 1,
+                    algorithm_name=f"✅ BEST SOLUTION - {algorithm}"
+                )
+                st.pyplot(fig_final)
+                plt.close(fig_final)
+            
+            with col_info:
+                st.markdown("#### 📋 Solution Details")
+                st.write(f"**💰 Total Value:** `{best_value:.0f}`")
+                st.write(f"**⚖️ Total Weight:** `{knapsack.get_weight(best_solution):.0f}` / `{knapsack.capacity:.0f}`")
+                st.write(f"**📦 Items Selected:** `{np.sum(best_solution)}` / `{n_items}`")
+                utilization = (knapsack.get_weight(best_solution)/knapsack.capacity)*100
+                st.write(f"**📊 Utilization:** `{utilization:.1f}%`")
+                
+                is_valid = knapsack.is_valid(best_solution)
+                if is_valid:
+                    st.success("✅ Valid solution!")
+                else:
+                    st.error("❌ Invalid solution (over capacity)")
+                
+                st.markdown("---")
+                st.markdown("**📦 Selected Items:**")
+                
                 selected_items = np.where(best_solution == 1)[0]
-                st.write(f"**Selected Items:** {', '.join(map(str, selected_items))}")
+                items_str = ""
+                for i, item_id in enumerate(selected_items):
+                    if i > 0 and i % 10 == 0:
+                        items_str += "\n"
+                    items_str += f"`{item_id}` "
+                
+                st.markdown(items_str if items_str else "*No items selected*")
+            
+            with st.expander("📊 Detailed Statistics"):
+                selected_items = np.where(best_solution == 1)[0]
+                st.write(f"**Selected Items (IDs):** {', '.join(map(str, selected_items))}")
+                st.write(f"**Number of Items Selected:** {len(selected_items)}")
                 st.write(f"**Total Value:** {best_value:.0f}")
                 st.write(f"**Total Weight:** {knapsack.get_weight(best_solution):.0f}")
                 st.write(f"**Capacity:** {knapsack.capacity:.0f}")
-                st.write(f"**Utilization:** {(knapsack.get_weight(best_solution)/knapsack.capacity)*100:.1f}%")
+                st.write(f"**Remaining Capacity:** {knapsack.capacity - knapsack.get_weight(best_solution):.0f}")
+                st.write(f"**Capacity Utilization:** {utilization:.2f}%")
+                st.write(f"**Valid Solution:** {'Yes ✅' if is_valid else 'No ❌'}")
+                
+                if 'value_history' in locals() and value_history and len(value_history) > 1:
+                    st.write(f"**Initial Value:** {value_history[0]:.0f}")
+                    st.write(f"**Final Value:** {best_value:.0f}")
+                    st.write(f"**Total Improvement:** {best_value - value_history[0]:.0f}")
+                    st.write(f"**Iterations:** {len(value_history)}")
         
         elif problem_type == "Discrete Optimization (Graph Coloring)":
-            # ========================================
-            # GRAPH COLORING VISUALIZATION với ANIMATION
-            # ========================================
-            
-            # Create graph
             graph_coloring = GraphColoring(n_vertices=n_nodes, edge_probability=edge_prob, seed=42)
             
             st.success(f"✅ Đang chạy {algorithm} trên Graph Coloring với {n_nodes} nodes...")
             
-            # Layout
             col1, col2 = st.columns([2, 1])
             
             with col1:
@@ -1466,60 +1610,46 @@ if main_tab == "🎬 Visualization & Demo":
             
             progress_bar = st.progress(0)
             
-            # Run with animation - Metaheuristics with CONSTRUCTIVE ANIMATION
             if 'max_iter' not in locals():
                 max_iter = 100
             
             st.info(f"🎨 Phase 1: Tô màu từng node với {algorithm}...")
             
-            # ========================================
-            # PHASE 1: CONSTRUCTIVE COLORING (TÔ TỪ TỪ)
-            # ========================================
             n = n_nodes
-            coloring = np.full(n, -1, dtype=int)  # Bắt đầu chưa tô
+            coloring = np.full(n, -1, dtype=int)
             
-            # Tô từng node với một chút randomness (cho GA/HC/SA)
             for step in range(n):
-                # Chọn node tiếp theo
                 if algorithm == "Genetic Algorithm":
-                    # GA: Random order (exploration)
                     uncolored = [i for i in range(n) if coloring[i] == -1]
                     if not uncolored:
                         break
                     vertex = np.random.choice(uncolored)
                 else:
-                    # HC/SA: Tuần tự nhưng có thể skip
                     uncolored = [i for i in range(n) if coloring[i] == -1]
                     if not uncolored:
                         break
-                    vertex = uncolored[0]  # First uncolored
+                    vertex = uncolored[0]
                 
-                # Tìm màu hợp lệ
                 adjacent_colors = set()
                 for neighbor in range(n):
                     if graph_coloring.adj_matrix[vertex, neighbor] == 1 and coloring[neighbor] != -1:
                         adjacent_colors.add(coloring[neighbor])
                 
-                # Chọn màu
                 if algorithm == "Genetic Algorithm" and np.random.rand() < 0.3:
-                    # GA: 30% chance chọn màu random (mutation-like)
                     max_color = int(np.max(coloring[coloring >= 0])) if len(coloring[coloring >= 0]) > 0 else 0
                     color = np.random.randint(0, max_color + 2)
                 else:
-                    # HC/SA: Greedy chọn màu nhỏ nhất
                     color = 0
                     while color in adjacent_colors:
                         color += 1
                 
                 coloring[vertex] = color
                 
-                # Update metrics
                 iteration_metric.metric("Phase", "1: Constructive")
                 iteration_metric.metric("Step", f"{step + 1}/{n}")
                 colors_metric.metric("Colors Used", len(np.unique(coloring[coloring >= 0])))
                 conflicts_metric.metric("Nodes Colored", f"{step + 1}/{n}")
                 
-                # Visualize
                 fig = GraphColoringVisualizer.create_graph_coloring_frame(
                     graph_coloring,
                     coloring=coloring,
@@ -1534,7 +1664,6 @@ if main_tab == "🎬 Visualization & Demo":
                 progress_bar.progress((step + 1) / (n + max_iter))
                 time.sleep(animation_speed)
             
-            # Phase 1 done
             best_coloring = coloring.copy()
             best_conflicts = graph_coloring.count_conflicts(best_coloring)
             best_n_colors = graph_coloring.count_colors(best_coloring)
@@ -1545,34 +1674,26 @@ if main_tab == "🎬 Visualization & Demo":
             st.info(f"✅ Phase 1 Done! Colors: {best_n_colors}, Conflicts: {best_conflicts}")
             st.info(f"🔧 Phase 2: Optimization với {algorithm}...")
             
-            # Initialize temperature for SA
             if algorithm == "Simulated Annealing":
                 temperature = initial_temp if 'initial_temp' in locals() else 100.0
                 alpha_cooling = cooling_rate if 'cooling_rate' in locals() else 0.95
             
-            # Animation loop
             for iteration in range(max_iter):
-                # Generate neighbor coloring & TRACK CURRENT NODE
-                current_node = None  # Node đang được xử lý
+                current_node = None
                 
                 if algorithm == "Genetic Algorithm":
-                    # Simple mutation: change random node color
                     neighbor = coloring.copy()
                     current_node = np.random.randint(0, n_nodes)
                     max_color = int(np.max(neighbor))
-                    # Try a different color
                     new_color = np.random.randint(0, max_color + 2)
                     neighbor[current_node] = new_color
                 else:
-                    # For HC/SA: swap two nodes' colors or change one
                     neighbor = coloring.copy()
                     if np.random.rand() < 0.5:
-                        # Swap two nodes
                         node1, node2 = np.random.choice(n_nodes, 2, replace=False)
                         neighbor[node1], neighbor[node2] = neighbor[node2], neighbor[node1]
-                        current_node = node1  # Highlight node đầu tiên
+                        current_node = node1
                     else:
-                        # Change one node's color
                         current_node = np.random.randint(0, n_nodes)
                         max_color = int(np.max(neighbor))
                         neighbor[current_node] = np.random.randint(0, max_color + 1)
@@ -1580,11 +1701,9 @@ if main_tab == "🎬 Visualization & Demo":
                     neighbor_conflicts = graph_coloring.count_conflicts(neighbor)
                     neighbor_n_colors = graph_coloring.count_colors(neighbor)
                     
-                    # Fitness: prioritize fewer conflicts, then fewer colors
                     current_fitness = (best_conflicts * 1000) + best_n_colors
                     neighbor_fitness = (neighbor_conflicts * 1000) + neighbor_n_colors
                     
-                    # Accept neighbor?
                     accept = False
                     if algorithm == "Hill Climbing":
                         if neighbor_fitness < current_fitness:
@@ -1593,7 +1712,7 @@ if main_tab == "🎬 Visualization & Demo":
                         delta = neighbor_fitness - current_fitness
                         if delta < 0 or np.random.rand() < np.exp(-delta / (temperature + 1e-10)):
                             accept = True
-                    else:  # GA - always accept for diversity
+                    else:
                         if neighbor_conflicts <= best_conflicts:
                             accept = True
                     
@@ -1602,7 +1721,6 @@ if main_tab == "🎬 Visualization & Demo":
                         current_conflicts = neighbor_conflicts
                         current_n_colors = neighbor_n_colors
                         
-                        # Update best
                         if neighbor_fitness < (best_conflicts * 1000 + best_n_colors):
                             best_coloring = neighbor.copy()
                             best_conflicts = neighbor_conflicts
@@ -1611,38 +1729,33 @@ if main_tab == "🎬 Visualization & Demo":
                         current_conflicts = graph_coloring.count_conflicts(coloring)
                         current_n_colors = graph_coloring.count_colors(coloring)
                     
-                    # Cool down for SA
                     if algorithm == "Simulated Annealing":
                         temperature *= alpha_cooling
                     
                     conflicts_history.append(best_conflicts)
                     colors_history.append(best_n_colors)
                     
-                    # Update metrics
                     iteration_metric.metric("Phase", "2: Optimization")
                     iteration_metric.metric("Iteration", f"{iteration + 1}/{max_iter}")
                     colors_metric.metric("Colors Used", best_n_colors)
                     conflicts_metric.metric("Conflicts", best_conflicts)
                     
-                    # Update visualization - theo user setting
                     update_frequency = viz_update_freq if 'viz_update_freq' in locals() else max(1, max_iter // 50)
                     if iteration % update_frequency == 0 or iteration == max_iter - 1:
                         fig = GraphColoringVisualizer.create_graph_coloring_frame(
                             graph_coloring,
                             coloring=best_coloring,
                             best_coloring=best_coloring,
-                            iteration=n + iteration + 1,  # Phase 1 (n steps) + Phase 2
+                            iteration=n + iteration + 1,
                             algorithm_name=f"{algorithm} - Optimization",
-                            current_node=current_node  # 🔴 HIGHLIGHT NODE ĐANG XỬ LÝ!
+                            current_node=current_node
                         )
                         plot_placeholder.pyplot(fig)
                         plt.close(fig)
                     
-                    # Update convergence plots - update thường xuyên để thấy progress
                     if len(conflicts_history) > 1 and iteration % max(1, update_frequency * 2) == 0:
                         fig_conv, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
                         
-                        # Conflicts plot
                         ax1.plot(conflicts_history, 'r-', linewidth=2.5, label='Conflicts', marker='o', markersize=3)
                         ax1.set_ylabel('Conflicts', fontsize=10, fontweight='bold')
                         ax1.set_title('Conflicts Over Time', fontsize=11, fontweight='bold')
@@ -1650,7 +1763,6 @@ if main_tab == "🎬 Visualization & Demo":
                         ax1.grid(True, alpha=0.3)
                         ax1.fill_between(range(len(conflicts_history)), conflicts_history, alpha=0.3, color='red')
                         
-                        # Colors plot
                         ax2.plot(colors_history, 'b-', linewidth=2.5, label='Colors Used', marker='s', markersize=3)
                         ax2.set_xlabel('Iteration', fontsize=10, fontweight='bold')
                         ax2.set_ylabel('Colors', fontsize=10, fontweight='bold')
@@ -1663,7 +1775,7 @@ if main_tab == "🎬 Visualization & Demo":
                         convergence_placeholder.pyplot(fig_conv)
                         plt.close(fig_conv)
                     
-                    progress_bar.progress((n + iteration + 1) / (n + max_iter))  # Total progress (Phase 1 + Phase 2)
+                    progress_bar.progress((n + iteration + 1) / (n + max_iter))
                     time.sleep(animation_speed)
                 
                 coloring = best_coloring
@@ -1690,49 +1802,94 @@ if main_tab == "🎬 Visualization & Demo":
             
             st.markdown('</div>', unsafe_allow_html=True)
             
-            with st.expander("🎨 Coloring Details"):
-                st.write(f"**Algorithm:** {algorithm}")
-                st.write(f"**Colors Used:** {n_colors}")
-                st.write(f"**Nodes:** {n_nodes}")
-                st.write(f"**Edges:** {np.sum(graph_coloring.adj_matrix) // 2}")
-                st.write(f"**Conflicts:** {n_conflicts}")
-                st.write(f"**Valid Coloring:** {'Yes ✅' if n_conflicts == 0 else 'No ❌'}")
+            # === HIỂN THỊ BEST SOLUTION RÕ RÀNG ===
+            st.markdown("### 🏆 Best Solution Found:")
+            
+            col_viz, col_info = st.columns([2, 1])
+            
+            with col_viz:
+                # Visualization FINAL của best coloring
+                fig_final = GraphColoringVisualizer.create_graph_coloring_frame(
+                    graph_coloring,
+                    coloring=coloring,
+                    best_coloring=coloring,
+                    iteration=len(colors_history) if 'colors_history' in locals() and colors_history else 1,
+                    algorithm_name=f"✅ BEST COLORING - {algorithm}"
+                )
+                st.pyplot(fig_final)
+                plt.close(fig_final)
+            
+            with col_info:
+                st.markdown("#### 📋 Coloring Details")
+                st.write(f"**🎨 Colors Used:** `{n_colors}`")
+                st.write(f"**📍 Nodes:** `{n_nodes}`")
+                st.write(f"**🔗 Edges:** `{np.sum(graph_coloring.adj_matrix) // 2}`")
+                st.write(f"**⚠️ Conflicts:** `{n_conflicts}`")
                 
-                # Show color assignment
+                if n_conflicts == 0:
+                    st.success("✅ Valid coloring! (No conflicts)")
+                else:
+                    st.error(f"❌ Invalid: {n_conflicts} conflicts found")
+                
+                st.markdown("---")
+                st.markdown("**🎨 Color Assignment:**")
+                
+                # Show color assignment dạng đẹp
                 color_assignment = {}
                 for color in range(n_colors):
                     nodes_with_color = [i for i, c in enumerate(coloring) if c == color]
                     color_assignment[f"Color {color}"] = nodes_with_color
                 
-                st.write("\n**Color Assignment:**")
                 for color_name, nodes in color_assignment.items():
-                    st.write(f"  {color_name}: {nodes}")
+                    nodes_str = ', '.join([f'`{n}`' for n in nodes])
+                    st.markdown(f"**{color_name}:** {nodes_str}")
+            
+            with st.expander("📊 Detailed Statistics"):
+                st.write(f"**Algorithm:** {algorithm}")
+                st.write(f"**Colors Used:** {n_colors}")
+                st.write(f"**Nodes:** {n_nodes}")
+                st.write(f"**Edges:** {np.sum(graph_coloring.adj_matrix) // 2}")
+                st.write(f"**Graph Density:** {(np.sum(graph_coloring.adj_matrix) / (n_nodes * (n_nodes - 1))):.2%}")
+                st.write(f"**Conflicts:** {n_conflicts}")
+                st.write(f"**Valid Coloring:** {'Yes ✅' if n_conflicts == 0 else 'No ❌'}")
+                
+                if 'colors_history' in locals() and colors_history and len(colors_history) > 1:
+                    st.write(f"**Initial Colors:** {colors_history[0]}")
+                    st.write(f"**Final Colors:** {n_colors}")
+                    st.write(f"**Color Reduction:** {colors_history[0] - n_colors}")
+                    st.write(f"**Iterations:** {len(colors_history)}")
+                
+                st.markdown("---")
+                st.write("**Full Color Assignment:**")
+                for color in range(n_colors):
+                    nodes_with_color = [i for i, c in enumerate(coloring) if c == color]
+                    st.write(f"  Color {color}: {nodes_with_color}")
         
         elif problem_type == "Path Finding (Grid World)":
             # ========================================
-            # GRID WORLD / GRAPH SEARCH với ANIMATION
+            # GRID WORLD / GRAPH SEARCH với REAL-TIME ANIMATION
             # ========================================
             
             grid = GridWorld(grid_size=(grid_size, grid_size), 
                            obstacle_prob=obstacle_prob, seed=42)
             
-            st.success(f"✅ Đang chạy {algorithm} trên Grid World {grid_size}x{grid_size}...")
+            st.success(f"Đang chạy {algorithm} trên Grid World {grid_size}x{grid_size}...")
             
-            # Layout
+            # Setup layout cho real-time visualization
             col1, col2 = st.columns([3, 1])
             
             with col1:
                 plot_placeholder = st.empty()
             
             with col2:
-                st.markdown("### 📊 Metrics")
+                st.markdown("### Metrics")
                 nodes_metric = st.empty()
                 queue_metric = st.empty()
                 path_metric = st.empty()
             
             progress_bar = st.progress(0)
             
-            # Manual implementation với animation
+            # Manual implementation với real-time animation
             from collections import deque
             import heapq
             
@@ -1760,7 +1917,7 @@ if main_tab == "🎬 Visualization & Demo":
             iteration = 0
             max_iterations = grid_size * grid_size * 2
             
-            # Search animation
+            # Real-time search với visualization từng bước
             while frontier and not found:
                 # Get next node
                 if algorithm == "BFS":
@@ -1787,7 +1944,6 @@ if main_tab == "🎬 Visualization & Demo":
                         node = came_from[node]
                     path.append(start)
                     path.reverse()
-                    break
                 
                 # Explore neighbors
                 row, col = current
@@ -1820,126 +1976,173 @@ if main_tab == "🎬 Visualization & Demo":
                             heapq.heappush(frontier, (f, neighbor))
                 
                 # Update metrics
-                nodes_metric.metric("Nodes Expanded", iteration)
-                queue_metric.metric("Frontier Size", len(frontier))
+                nodes_metric.metric("Nodes Expanded", len(visited))
+                if algorithm in ["BFS", "DFS"]:
+                    queue_metric.metric("Frontier Size", len(frontier))
+                else:  # A*
+                    queue_metric.metric("Frontier Size", len(frontier))
                 path_metric.metric("Path Length", len(path) if found else "Searching...")
                 
-                # Visualization - IMPROVED!
-                if iteration % max(1, max_iterations // 100) == 0 or found:
-                    fig, ax = plt.subplots(figsize=(8, 8))
-                    
-                    # Draw grid base
-                    grid_display = np.copy(grid.grid).astype(float)
-                    
-                    # Color visited cells (light gray)
-                    for v in visited:
-                        if v != start and v != goal:
-                            grid_display[v[0], v[1]] = 0.85
-                    
-                    # Color frontier (light blue)
-                    if algorithm in ["BFS", "DFS"]:
-                        for f in frontier:
-                            if isinstance(f, tuple):
-                                grid_display[f[0], f[1]] = 0.7
-                    else:  # A*
-                        for _, f in frontier:
-                            if isinstance(f, tuple):
-                                grid_display[f[0], f[1]] = 0.7
-                    
-                    # Color start and goal
-                    grid_display[start[0], start[1]] = 0.95  # Start (light green)
-                    grid_display[goal[0], goal[1]] = 0.05   # Goal (red)
-                    
-                    # Plot base grid
-                    im = ax.imshow(grid_display, cmap='RdYlGn', vmin=0, vmax=1,
-                                  aspect='equal', interpolation='nearest')
-                    
-                    # Add BEAUTIFUL grid lines
-                    ax.set_xticks(np.arange(-0.5, grid_size, 1), minor=True)
-                    ax.set_yticks(np.arange(-0.5, grid_size, 1), minor=True)
-                    ax.grid(which="minor", color="black", linestyle='-', linewidth=1.5, alpha=0.3)
-                    ax.tick_params(which="minor", size=0)
-                    ax.set_xticks(np.arange(0, grid_size, 1))
-                    ax.set_yticks(np.arange(0, grid_size, 1))
-                    
-                    # Draw PATH LINE progressively (đi tới đâu hiện line tới đó)
-                    if current in came_from or current == start:
-                        # Reconstruct path from start to current
-                        current_path = []
-                        node = current
-                        while node in came_from:
-                            current_path.append(node)
-                            node = came_from[node]
-                        current_path.append(start)
-                        current_path.reverse()
-                        
-                        # Draw line through path
-                        if len(current_path) > 1:
-                            path_y = [p[1] for p in current_path]
-                            path_x = [p[0] for p in current_path]
-                            ax.plot(path_y, path_x, 'b-', linewidth=4, alpha=0.7,
-                                   label='Search Path', zorder=10)
-                    
-                    # Draw FINAL PATH LINE if found
-                    if found and len(path) > 1:
-                        path_y = [p[1] for p in path]
-                        path_x = [p[0] for p in path]
-                        ax.plot(path_y, path_x, color='cyan', linewidth=5, 
-                               alpha=0.9, label='Final Path', zorder=11,
-                               linestyle='-', marker='o', markersize=6)
-                    
-                    # Draw START marker (green circle)
-                    ax.scatter(start[1], start[0], c='lime', s=600, marker='o',
-                              edgecolors='darkgreen', linewidths=4, alpha=0.95,
-                              zorder=20, label='Start')
-                    ax.text(start[1], start[0], 'S', ha='center', va='center',
-                           fontsize=18, fontweight='bold', color='black', zorder=21)
-                    
-                    # Draw GOAL marker (red circle)
-                    ax.scatter(goal[1], goal[0], c='red', s=600, marker='o',
-                              edgecolors='darkred', linewidths=4, alpha=0.95,
-                              zorder=20, label='Goal')
-                    ax.text(goal[1], goal[0], 'G', ha='center', va='center',
-                           fontsize=18, fontweight='bold', color='white', zorder=21)
-                    
-                    # Draw CURRENT node (large CIRCLE with pulsing effect)
-                    if not found:
-                        # 3-layer glow for current node
-                        ax.scatter(current[1], current[0], c='orange', s=1000, marker='o',
-                                  alpha=0.3, zorder=15, edgecolors='none')
-                        ax.scatter(current[1], current[0], c='yellow', s=700, marker='o',
-                                  alpha=0.6, zorder=16, edgecolors='red', linewidths=3)
-                        ax.scatter(current[1], current[0], c='gold', s=400, marker='o',
-                                  alpha=1.0, zorder=17, edgecolors='darkred', linewidths=4,
-                                  label='Current')
-                    
-                    # Title and labels
-                    status = "✅ Path Found!" if found else "🔍 Searching..."
-                    ax.set_title(f'{algorithm} - {status}\n'
-                               f'Iteration {iteration} | Nodes: {len(visited)} | Frontier: {len(frontier)}',
-                               fontsize=16, fontweight='bold', pad=20)
-                    ax.set_xlabel('Column', fontsize=12, fontweight='bold')
-                    ax.set_ylabel('Row', fontsize=12, fontweight='bold')
-                    
-                    # Legend (cleaner)
-                    ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1), 
-                             fontsize=11, framealpha=0.9)
-                    
-                    # Equal aspect ratio for square grid
-                    ax.set_aspect('equal')
-                    
-                    plt.tight_layout()
-                    plot_placeholder.pyplot(fig)
-                    plt.close(fig)
+                # Real-time visualization - hiển thị từng bước
+                fig, ax = plt.subplots(figsize=(7, 7))
                 
+                # Draw grid base - obstacles là 1, empty là 0
+                grid_display = np.copy(grid.grid).astype(float)
+                
+                # Đặt giá trị cho obstacles và empty cells trước
+                # Obstacles: giá trị thấp (đen/xám đậm) - 0.1
+                # Empty cells: giá trị cao (trắng/xanh nhạt) - 0.9
+                grid_display[grid.grid == 1] = 0.1  # Obstacles (đen/xám đậm)
+                grid_display[grid.grid == 0] = 0.9  # Empty cells (trắng)
+                
+                # Color visited cells (light blue/gray - các node đã duyệt)
+                # CHỈ tô màu nếu KHÔNG phải obstacle
+                visited_list = list(visited)
+                for v in visited_list:
+                    if v != start and v != goal and grid.grid[v[0], v[1]] != 1:
+                        grid_display[v[0], v[1]] = 0.75
+                
+                # Color frontier nodes (light cyan - đang chờ explore)
+                # CHỈ tô màu nếu KHÔNG phải obstacle
+                if algorithm in ["BFS", "DFS"]:
+                    frontier_nodes = [f for f in frontier if isinstance(f, tuple)]
+                else:  # A*
+                    frontier_nodes = [f for _, f in frontier if isinstance(f, tuple)]
+                
+                for fnode in frontier_nodes:
+                    if (fnode not in visited and fnode != start and fnode != goal and 
+                        grid.grid[fnode[0], fnode[1]] != 1):
+                        grid_display[fnode[0], fnode[1]] = 0.6
+                
+                # Color current node (orange - node đang xét)
+                # CHỈ tô màu nếu KHÔNG phải obstacle
+                if (not found and current != start and current != goal and 
+                    grid.grid[current[0], current[1]] != 1):
+                    grid_display[current[0], current[1]] = 0.85
+                
+                # Color start and goal (ưu tiên cao nhất, ghi đè mọi thứ)
+                grid_display[start[0], start[1]] = 0.95  # Start (light green)
+                grid_display[goal[0], goal[1]] = 0.05   # Goal (red)
+                
+                # Plot base grid với custom colormap để obstacles rõ ràng
+                # Sử dụng colormap có màu đen rõ ràng cho obstacles
+                im = ax.imshow(grid_display, cmap='RdYlGn', vmin=0, vmax=1,
+                              aspect='equal', interpolation='nearest')
+                
+                # Add grid lines (vẽ trước obstacles để obstacles ở trên)
+                ax.set_xticks(np.arange(-0.5, grid_size, 1), minor=True)
+                ax.set_yticks(np.arange(-0.5, grid_size, 1), minor=True)
+                ax.grid(which="minor", color="black", linestyle='-', linewidth=0.8, alpha=0.25)
+                ax.tick_params(which="minor", size=0)
+                ax.set_xticks(np.arange(0, grid_size, 1))
+                ax.set_yticks(np.arange(0, grid_size, 1))
+                
+                # Vẽ obstacles rõ ràng bằng hình chữ nhật đen (zorder thấp để ở dưới)
+                for i in range(grid.rows):
+                    for j in range(grid.cols):
+                        if grid.grid[i, j] == 1:
+                            # Vẽ hình chữ nhật đen cho obstacle
+                            rect = plt.Rectangle((j-0.5, i-0.5), 1, 1, 
+                                                facecolor='black', edgecolor='darkgray', 
+                                                linewidth=1, alpha=1.0, zorder=2)
+                            ax.add_patch(rect)
+                
+                # Nếu đã tìm thấy path - HIGHLIGHT PATH NGAY!
+                if found and len(path) > 1:
+                    path_y = [p[1] for p in path]
+                    path_x = [p[0] for p in path]
+                    
+                    # Draw path với highlight rõ ràng (zorder cao để ở trên obstacles)
+                    ax.plot(path_y, path_x, color='cyan', linewidth=10, 
+                           alpha=0.3, zorder=11, linestyle='-')
+                    ax.plot(path_y, path_x, color='deepskyblue', linewidth=7, 
+                           alpha=0.5, zorder=12, linestyle='-')
+                    ax.plot(path_y, path_x, color='cyan', linewidth=4, 
+                           alpha=0.9, zorder=13, linestyle='-',
+                           marker='o', markersize=7, markerfacecolor='cyan',
+                           markeredgecolor='blue', markeredgewidth=1.5)
+                    
+                    # Highlight nodes trên path (chỉ highlight nếu không phải obstacle)
+                    for px, py in path:
+                        if (px, py) != start and (px, py) != goal and grid.grid[px, py] != 1:
+                            ax.scatter(py, px, c='yellow', s=300, marker='o',
+                                     alpha=0.9, zorder=14, edgecolors='orange', linewidths=2)
+                
+                # Draw CURRENT node marker (nếu chưa tìm thấy goal và không phải obstacle)
+                if not found and grid.grid[current[0], current[1]] != 1:
+                    ax.scatter(current[1], current[0], c='orange', s=400, marker='o',
+                              alpha=0.8, zorder=16, edgecolors='red', linewidths=2)
+                
+                # Draw START marker (green circle) - luôn hiển thị
+                ax.scatter(start[1], start[0], c='lime', s=600, marker='o',
+                          alpha=0.4, zorder=18, edgecolors='none')
+                ax.scatter(start[1], start[0], c='lime', s=500, marker='o',
+                          edgecolors='darkgreen', linewidths=3, alpha=0.95,
+                          zorder=20)
+                ax.text(start[1], start[0], 'S', ha='center', va='center',
+                       fontsize=16, fontweight='bold', color='black', zorder=21)
+                
+                # Draw GOAL marker (red circle) - luôn hiển thị
+                ax.scatter(goal[1], goal[0], c='red', s=600, marker='o',
+                          alpha=0.4, zorder=18, edgecolors='none')
+                ax.scatter(goal[1], goal[0], c='red', s=500, marker='o',
+                          edgecolors='darkred', linewidths=3, alpha=0.95,
+                          zorder=20)
+                ax.text(goal[1], goal[0], 'G', ha='center', va='center',
+                       fontsize=16, fontweight='bold', color='white', zorder=21)
+                
+                # Title and labels
+                status = "Path Found!" if found else "Searching..."
+                ax.set_title(f'{algorithm} - {status}\n'
+                           f'Iteration {iteration} | Nodes: {len(visited)} | Frontier: {len(frontier)}',
+                           fontsize=13, fontweight='bold', pad=15,
+                           color='darkgreen' if found else 'black')
+                ax.set_xlabel('Column', fontsize=10, fontweight='bold')
+                ax.set_ylabel('Row', fontsize=10, fontweight='bold')
+                
+                # Legend với obstacles
+                from matplotlib.patches import Patch
+                legend_elements = [
+                    Patch(facecolor='black', edgecolor='darkgray', label='Obstacle'),
+                    Patch(facecolor='lime', edgecolor='darkgreen', label='Start'),
+                    Patch(facecolor='red', edgecolor='darkred', label='Goal'),
+                ]
+                if not found:
+                    legend_elements.append(Patch(facecolor='orange', edgecolor='red', label='Current'))
+                legend_elements.append(Patch(facecolor='lightblue', edgecolor='blue', label='Visited'))
+                legend_elements.append(Patch(facecolor='cyan', edgecolor='blue', label='Frontier'))
+                if found and len(path) > 1:
+                    legend_elements.append(Patch(facecolor='cyan', edgecolor='blue', label='Path'))
+                
+                ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1), 
+                         fontsize=9, framealpha=0.9)
+                
+                # Equal aspect ratio
+                ax.set_aspect('equal')
+                
+                plt.tight_layout()
+                plot_placeholder.pyplot(fig)
+                plt.close(fig)
+                
+                # Update progress
                 progress_bar.progress(min(iteration / max_iterations, 1.0))
+                
+                # Delay để thấy animation
                 time.sleep(animation_speed)
+                
+                # Nếu đã tìm thấy, dừng lại
+                if found:
+                    break
+                
+                # Safety check
+                if iteration >= max_iterations:
+                    break
             
             # Final results
             st.markdown("---")
             if found:
                 st.markdown('<div class="success-box">', unsafe_allow_html=True)
-                st.markdown("## 🎉 Path Found!")
+                st.markdown("## Path Found!")
                 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -1947,13 +2150,50 @@ if main_tab == "🎬 Visualization & Demo":
                 with col2:
                     st.metric("Nodes Expanded", len(visited))
                 with col3:
-                    st.metric("Frontier Peak", max(1, iteration))
+                    st.metric("Total Iterations", iteration)
                 with col4:
                     st.metric("Algorithm", algorithm)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Path details
+                col_info1, col_info2 = st.columns(2)
+                
+                with col_info1:
+                    st.markdown("#### Path Details")
+                    st.write(f"**Path Length:** `{len(path)}` steps")
+                    st.write(f"**Nodes Expanded:** `{len(visited)}`")
+                    st.write(f"**Total Iterations:** `{iteration}`")
+                    st.write(f"**Algorithm:** `{algorithm}`")
+                
+                with col_info2:
+                    st.markdown("#### Path Sequence:")
+                    path_str = " → ".join([f"`({p[0]},{p[1]})`" for p in path[:20]])
+                    if len(path) > 20:
+                        path_str += f" ... (total {len(path)} steps)"
+                    st.markdown(path_str)
+                
+                with st.expander("Detailed Statistics"):
+                    st.write(f"**Algorithm:** {algorithm}")
+                    st.write(f"**Grid Size:** {grid_size} × {grid_size}")
+                    st.write(f"**Start:** {start}")
+                    st.write(f"**Goal:** {goal}")
+                    st.write(f"**Path Length:** {len(path)} steps")
+                    st.write(f"**Nodes Expanded:** {len(visited)}")
+                    st.write(f"**Total Iterations:** {iteration}")
+                    st.write(f"**Path Found:** {'Yes' if found else 'No'}")
+                    st.write(f"**Path Sequence:** {' → '.join([str(p) for p in path])}")
             else:
-                st.error("❌ No path found or search stopped!")
+                st.error("No path found or search stopped!")
+                
+                st.markdown("#### Search Statistics")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write(f"**Nodes Expanded:** {len(visited)}")
+                with col2:
+                    st.write(f"**Total Iterations:** {iteration}")
+                with col3:
+                    st.write(f"**Algorithm:** {algorithm}")
     
     else:
         # Welcome screen with team info
@@ -2059,31 +2299,47 @@ elif main_tab == "📊 Comparison Dashboard":
     # ========================================
     st.sidebar.markdown("### 🎯 Step 1: Chọn Bài Toán")
     
-    comparison_problem_type = st.sidebar.selectbox(
+    # Cấp 1: Chọn loại bài toán chính
+    comp_problem_category = st.sidebar.radio(
         "Loại bài toán:",
-        ["Continuous Optimization", "Discrete (TSP)", "Discrete (Knapsack)", "Discrete (Graph Coloring)"],
-        key="comp_problem_type"
+        ["Continuous Optimization", "Discrete Optimization"],
+        key="comp_problem_category",
+        help="Chọn loại bài toán tối ưu"
     )
     
-    # Problem-specific configuration
-    if comparison_problem_type == "Continuous Optimization":
+    # Cấp 2: Chọn bài toán cụ thể
+    if comp_problem_category == "Continuous Optimization":
+        comparison_problem_type = "Continuous Optimization"
+        
         comp_func_name = st.sidebar.selectbox(
             "Chọn test function:",
-            ["sphere", "rastrigin", "rosenbrock", "ackley"],
+            ["Sphere", "Rastrigin", "Rosenbrock", "Ackley"],
             key="comp_func"
         )
         comp_dim = st.sidebar.slider("Số chiều (dimension):", 2, 10, 5, key="comp_dim")
         
-    elif comparison_problem_type == "Discrete (TSP)":
-        comp_n_cities = st.sidebar.slider("Số thành phố:", 10, 50, 20, key="comp_tsp_cities")
+    else:  # Discrete Optimization
+        comp_discrete_problem = st.sidebar.selectbox(
+            "Chọn bài toán cụ thể:",
+            ["TSP (Traveling Salesman)", "Knapsack", "Graph Coloring"],
+            key="comp_discrete_problem",
+            help="Chọn bài toán rời rạc cụ thể"
+        )
         
-    elif comparison_problem_type == "Discrete (Knapsack)":
-        comp_n_items = st.sidebar.slider("Số items:", 10, 100, 30, key="comp_kp_items")
-        comp_kp_capacity = st.sidebar.slider("Capacity:", 50, 500, 200, key="comp_kp_cap")
-        
-    elif comparison_problem_type == "Discrete (Graph Coloring)":
-        comp_n_vertices = st.sidebar.slider("Số nodes:", 10, 50, 20, key="comp_gc_nodes")
-        comp_edge_prob = st.sidebar.slider("Edge probability:", 0.1, 0.9, 0.3, key="comp_gc_prob")
+        # Map to comparison_problem_type for backward compatibility
+        if comp_discrete_problem == "TSP (Traveling Salesman)":
+            comparison_problem_type = "Discrete (TSP)"
+            comp_n_cities = st.sidebar.slider("Số thành phố:", 10, 50, 20, key="comp_tsp_cities")
+            
+        elif comp_discrete_problem == "Knapsack":
+            comparison_problem_type = "Discrete (Knapsack)"
+            comp_n_items = st.sidebar.slider("Số items:", 10, 100, 30, key="comp_kp_items")
+            comp_kp_capacity = st.sidebar.slider("Capacity:", 50, 500, 200, key="comp_kp_cap")
+            
+        else:  # Graph Coloring
+            comparison_problem_type = "Discrete (Graph Coloring)"
+            comp_n_vertices = st.sidebar.slider("Số nodes:", 10, 50, 20, key="comp_gc_nodes")
+            comp_edge_prob = st.sidebar.slider("Edge probability:", 0.1, 0.9, 0.3, key="comp_gc_prob")
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 Step 2: Chọn Thuật Toán")
