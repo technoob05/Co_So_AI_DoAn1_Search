@@ -90,9 +90,9 @@ algorithms:
     type: graph
   Firefly:
     default_params:
-      alpha: 0.5
+      alpha: 0.2
       beta0: 1.0
-      gamma: 1.0
+      gamma: 0.01
       max_iter: 100
       n_fireflies: 30
     description: Dựa trên ánh sáng của đom đóm
@@ -100,13 +100,13 @@ algorithms:
     param_ranges:
       alpha:
       - 0.1
-      - 1.0
+      - 0.5
       beta0:
       - 0.5
       - 2.0
       gamma:
+      - 0.001
       - 0.1
-      - 2.0
       max_iter:
       - 10
       - 500
