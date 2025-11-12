@@ -126,7 +126,7 @@ class TSPVisualizer:
             # Layer 3: Inner circle (yellow - main highlight)
             ax_main.scatter(cx, cy, c='yellow', s=500, marker='o',
                            edgecolors='red', linewidths=6,
-                           alpha=1.0, zorder=9, label=f'⚡ Processing: City {current_city}')
+                           alpha=1.0, zorder=9, label=f'Processing: City {current_city}')
             
             # Add LARGE arrow pointing to city
             arrow_start_x = cx + 15
@@ -191,14 +191,14 @@ class TSPVisualizer:
         
         # Create statistics text
         stats_text = f"""
-        📊 STATISTICS
+        STATISTICS
         ─────────────────────────
         Algorithm: {algorithm_name}
         Iteration: {iteration}
         
-        🎯 Best Tour Length: {best_length:.2f}
+        Best Tour Length: {best_length:.2f}
         
-        🏙️  Cities: {tsp.n_cities}
+        Cities: {tsp.n_cities}
         """
         
         if population_tours is not None:
@@ -206,9 +206,9 @@ class TSPVisualizer:
             avg_length = np.mean(pop_lengths)
             std_length = np.std(pop_lengths)
             stats_text += f"""
-        👥 Population Size: {len(population_tours)}
-        📈 Avg Tour Length: {avg_length:.2f}
-        📊 Std Deviation: {std_length:.2f}
+        Population Size: {len(population_tours)}
+        Avg Tour Length: {avg_length:.2f}
+        Std Deviation: {std_length:.2f}
         """
         
         ax_to_use.text(0.1, 0.95, stats_text, transform=ax_to_use.transAxes,
@@ -246,7 +246,7 @@ class TSPVisualizer:
                 
                 ax_pop.set_xlabel('Iteration', fontsize=10, fontweight='bold')
                 ax_pop.set_ylabel('Tour Length', fontsize=10, fontweight='bold')
-                ax_pop.set_title('🚀 Tour Improvement Progress', fontsize=12, fontweight='bold')
+                ax_pop.set_title('Tour Improvement Progress', fontsize=12, fontweight='bold')
                 ax_pop.legend(fontsize=9, loc='upper right')
                 ax_pop.grid(True, alpha=0.3)
                 
@@ -285,7 +285,7 @@ class TSPVisualizer:
                 
                 ax_pop.set_xlabel('Solution Rank (Best → Worst)', fontsize=10, fontweight='bold')
                 ax_pop.set_ylabel('Tour Length', fontsize=10, fontweight='bold')
-                ax_pop.set_title('📊 Population Quality Spectrum', fontsize=12, fontweight='bold')
+                ax_pop.set_title('Population Quality Spectrum', fontsize=12, fontweight='bold')
                 ax_pop.legend(fontsize=9, loc='upper left')
                 ax_pop.grid(True, alpha=0.3, axis='y')
                 
@@ -298,7 +298,7 @@ class TSPVisualizer:
             else:
                 # No data - show message
                 ax_pop.axis('off')
-                ax_pop.text(0.5, 0.5, '📈 Tour Progress\n(Data will appear during optimization)',
+                ax_pop.text(0.5, 0.5, 'Tour Progress\n(Data will appear during optimization)',
                            ha='center', va='center', fontsize=12, fontweight='bold',
                            transform=ax_pop.transAxes,
                            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
@@ -583,7 +583,7 @@ Iteration: {iteration}
                 algo,
                 f"{result.get('value', 0):.1f}",
                 f"{result.get('weight', 0):.1f}",
-                "✅" if result.get('valid', False) else "❌",
+                "Yes" if result.get('valid', False) else "No",
                 f"{result.get('time', 0):.3f}"
             ]
             table_data.append(row)
