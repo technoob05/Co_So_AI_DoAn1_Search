@@ -405,7 +405,6 @@ for option in tab_options:
         type="primary" if is_selected else "secondary"
     ):
         st.session_state.main_tab = option["name"]
-        st.experimental_rerun()
 
 main_tab = st.session_state.main_tab
 
@@ -2531,6 +2530,22 @@ elif main_tab == "Comparison Dashboard":
             ])
             
             # ========================================
+            # HELPER FUNCTION: Pad convergence curves
+            # ========================================
+            def pad_curves(curves_list):
+                """Pad curves to same length by repeating last value"""
+                max_len = max(len(curve) for curve in curves_list)
+                padded = []
+                for curve in curves_list:
+                    if len(curve) < max_len:
+                        # Pad with last value
+                        padded_curve = list(curve) + [curve[-1]] * (max_len - len(curve))
+                        padded.append(padded_curve)
+                    else:
+                        padded.append(curve)
+                return np.array(padded)
+            
+            # ========================================
             # TAB 1: CONVERGENCE COMPARISON
             # ========================================
             with result_tab1:
@@ -2541,7 +2556,8 @@ elif main_tab == "Comparison Dashboard":
                 colors = plt.cm.tab10(np.linspace(0, 1, len(selected_algorithms)))
                 
                 for idx, algo_name in enumerate(selected_algorithms):
-                    curves = np.array(all_results[algo_name]['convergence_curves'])
+                    curves_list = all_results[algo_name]['convergence_curves']
+                    curves = pad_curves(curves_list)
                     mean_curve = np.mean(curves, axis=0)
                     std_curve = np.std(curves, axis=0)
                     
@@ -2568,7 +2584,8 @@ elif main_tab == "Comparison Dashboard":
                 
                 convergence_stats = []
                 for algo_name in selected_algorithms:
-                    curves = np.array(all_results[algo_name]['convergence_curves'])
+                    curves_list = all_results[algo_name]['convergence_curves']
+                    curves = pad_curves(curves_list)
                     mean_curve = np.mean(curves, axis=0)
                     
                     # Final convergence value
