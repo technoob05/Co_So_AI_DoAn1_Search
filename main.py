@@ -274,6 +274,7 @@ def create_animated_3d_plot(func, particles, best_pos, best_score, iteration, al
     ax1.legend(loc='upper left', fontsize=9, framealpha=0.9)
     ax1.view_init(elev=25, azim=45 + iteration * 2)
     ax1.grid(True, alpha=0.3)
+    plt.draw()  # Force drawing to complete
     
     ax2 = fig.add_subplot(122)
     
@@ -352,6 +353,7 @@ def create_animated_3d_plot(func, particles, best_pos, best_score, iteration, al
                 fontsize=15, fontweight='bold', y=0.98)
     
     plt.tight_layout()
+    fig.canvas.draw_idle()  # Ensure figure is fully rendered
     return fig
 
 # SIDEBAR
@@ -961,7 +963,7 @@ if main_tab == "Visualization & Demo":
                     if dimensions == 2:
                         fig = create_animated_3d_plot(func, particles, best_pos, best_score,
                                                      iteration + 1, algorithm, function_name)
-                        plot_placeholder.pyplot(fig)
+                        plot_placeholder.pyplot(fig, clear_figure=True)
                         plt.close(fig)
                     
                     if len(best_scores_history) > 1:
@@ -977,7 +979,7 @@ if main_tab == "Visualization & Demo":
                         ax_conv.legend()
                         ax_conv.grid(True, alpha=0.3)
                         plt.tight_layout()
-                        convergence_placeholder.pyplot(fig_conv)
+                        convergence_placeholder.pyplot(fig_conv, clear_figure=True)
                         plt.close(fig_conv)
                     
                     progress_bar.progress((iteration + 1) / max_iter)
@@ -1036,7 +1038,7 @@ if main_tab == "Visualization & Demo":
                     ax.legend()
                     ax.grid(True, alpha=0.3)
                     plt.tight_layout()
-                    st.pyplot(fig)
+                    st.pyplot(fig, clear_figure=True)
                     plt.close()
                 
                 with col2:
@@ -1154,7 +1156,7 @@ if main_tab == "Visualization & Demo":
                             current_city=last_mutated_city,
                             tour_history=distance_history
                         )
-                        plot_placeholder.pyplot(fig)
+                        plot_placeholder.pyplot(fig, clear_figure=True)
                         plt.close(fig)
                     
                     if len(distance_history) > 1:
@@ -1166,7 +1168,7 @@ if main_tab == "Visualization & Demo":
                         ax_conv.grid(True, alpha=0.3)
                         ax_conv.fill_between(range(len(distance_history)), distance_history, alpha=0.3)
                         plt.tight_layout()
-                        convergence_placeholder.pyplot(fig_conv)
+                        convergence_placeholder.pyplot(fig_conv, clear_figure=True)
                         plt.close(fig_conv)
                     
                     progress_bar.progress((iteration + 1) / max_iter)
@@ -1296,7 +1298,7 @@ if main_tab == "Visualization & Demo":
                             current_city=last_processed_city,
                             tour_history=distance_history
                         )
-                        plot_placeholder.pyplot(fig)
+                        plot_placeholder.pyplot(fig, clear_figure=True)
                         plt.close(fig)
                     
                     # Convergence plot
@@ -1310,7 +1312,7 @@ if main_tab == "Visualization & Demo":
                         ax_conv.grid(True, alpha=0.3)
                         ax_conv.fill_between(range(len(distance_history)), distance_history, alpha=0.3, color='orange')
                         plt.tight_layout()
-                        convergence_placeholder.pyplot(fig_conv)
+                        convergence_placeholder.pyplot(fig_conv, clear_figure=True)
                         plt.close(fig_conv)
                     
                     progress_bar.progress((iteration + 1) / max_iter)
@@ -1322,6 +1324,8 @@ if main_tab == "Visualization & Demo":
                 
                 best_tour, _ = TSPSolver.nearest_neighbor(tsp)
                 best_distance = tsp.evaluate(best_tour)
+                current_tour = best_tour[:]
+                current_distance = best_distance
                 distance_history = [best_distance]
                 
                 if algorithm == "Simulated Annealing":
@@ -1343,9 +1347,10 @@ if main_tab == "Visualization & Demo":
                         i = np.random.randint(0, n_cities - 2)
                         j = np.random.randint(i + 2, min(n_cities, i + 10))
                         
-                        current_swap_cities = [best_tour[i], best_tour[j-1] if j > 0 else best_tour[-1]]
+                        base_tour = current_tour if algorithm == "Simulated Annealing" else best_tour
+                        current_swap_cities = [base_tour[i], base_tour[j-1] if j > 0 else base_tour[-1]]
                         
-                        new_tour = best_tour[:]
+                        new_tour = base_tour[:]
                         new_tour[i:j] = list(reversed(new_tour[i:j]))
                         new_distance = tsp.evaluate(new_tour)
                         
@@ -1353,16 +1358,21 @@ if main_tab == "Visualization & Demo":
                             if new_distance < best_distance:
                                 best_tour = new_tour
                                 best_distance = new_distance
+                                current_tour = best_tour[:]
+                                current_distance = best_distance
                                 improved = True
                                 swap_city_i, swap_city_j = current_swap_cities[0], current_swap_cities[1]
                                 no_improvement_count = 0
                                 break
                         
                         elif algorithm == "Simulated Annealing":  # Only for SA
-                            delta = new_distance - best_distance
+                            delta = new_distance - current_distance
                             if delta < 0 or np.random.rand() < np.exp(-delta / temperature):
-                                best_tour = new_tour
-                                best_distance = new_distance
+                                current_tour = new_tour
+                                current_distance = new_distance
+                                if new_distance < best_distance:
+                                    best_tour = new_tour
+                                    best_distance = new_distance
                                 improved = True
                                 swap_city_i, swap_city_j = current_swap_cities[0], current_swap_cities[1]
                                 break
@@ -1391,7 +1401,7 @@ if main_tab == "Visualization & Demo":
                             current_city=swap_city_i if swap_city_i is not None else None,
                             tour_history=distance_history
                         )
-                        plot_placeholder.pyplot(fig)
+                        plot_placeholder.pyplot(fig, clear_figure=True)
                         plt.close(fig)
                     
                     if len(distance_history) > 1:
@@ -1403,7 +1413,7 @@ if main_tab == "Visualization & Demo":
                         ax_conv.grid(True, alpha=0.3)
                         ax_conv.fill_between(range(len(distance_history)), distance_history, alpha=0.3)
                         plt.tight_layout()
-                        convergence_placeholder.pyplot(fig_conv)
+                        convergence_placeholder.pyplot(fig_conv, clear_figure=True)
                         plt.close(fig_conv)
                     
                     progress_bar.progress((iteration + 1) / max_iter)
@@ -1445,7 +1455,7 @@ if main_tab == "Visualization & Demo":
                     algorithm_name=f"BEST TOUR - {algorithm}",
                     tour_history=distance_history
                 )
-                st.pyplot(fig_final)
+                st.pyplot(fig_final, clear_figure=True)
                 plt.close(fig_final)
             
             with col_info:
@@ -1579,7 +1589,7 @@ if main_tab == "Visualization & Demo":
                             algorithm_name=algorithm,
                             population_solutions=population[:20]
                         )
-                        plot_placeholder.pyplot(fig)
+                        plot_placeholder.pyplot(fig, clear_figure=True)
                         plt.close(fig)
                     
                     # Update convergence plot
@@ -1592,7 +1602,7 @@ if main_tab == "Visualization & Demo":
                         ax_conv.grid(True, alpha=0.3)
                         ax_conv.fill_between(range(len(value_history)), value_history, alpha=0.3, color='green')
                         plt.tight_layout()
-                        convergence_placeholder.pyplot(fig_conv)
+                        convergence_placeholder.pyplot(fig_conv, clear_figure=True)
                         plt.close(fig_conv)
                     
                     progress_bar.progress((iteration + 1) / max_iter)
@@ -1648,7 +1658,7 @@ if main_tab == "Visualization & Demo":
                             iteration=iteration + 1,
                             algorithm_name=algorithm
                         )
-                        plot_placeholder.pyplot(fig)
+                        plot_placeholder.pyplot(fig, clear_figure=True)
                         plt.close(fig)
                     
                     # Update convergence plot
@@ -1661,7 +1671,7 @@ if main_tab == "Visualization & Demo":
                         ax_conv.grid(True, alpha=0.3)
                         ax_conv.fill_between(range(len(value_history)), value_history, alpha=0.3, color='green')
                         plt.tight_layout()
-                        convergence_placeholder.pyplot(fig_conv)
+                        convergence_placeholder.pyplot(fig_conv, clear_figure=True)
                         plt.close(fig_conv)
                     
                     progress_bar.progress((iteration + 1) / max_iter)
@@ -1677,7 +1687,7 @@ if main_tab == "Visualization & Demo":
                     iteration=1,
                     algorithm_name=algorithm
                 )
-                plot_placeholder.pyplot(fig)
+                plot_placeholder.pyplot(fig, clear_figure=True)
                 plt.close(fig)
             
             st.markdown("---")
@@ -1711,7 +1721,7 @@ if main_tab == "Visualization & Demo":
                     iteration=len(value_history) if 'value_history' in locals() and value_history else 1,
                     algorithm_name=f"BEST SOLUTION - {algorithm}"
                 )
-                st.pyplot(fig_final)
+                st.pyplot(fig_final, clear_figure=True)
                 plt.close(fig_final)
             
             with col_info:
@@ -1825,7 +1835,7 @@ if main_tab == "Visualization & Demo":
                     algorithm_name=f"{algorithm} - Constructive: Node {vertex}",
                     current_node=vertex
                 )
-                plot_placeholder.pyplot(fig)
+                plot_placeholder.pyplot(fig, clear_figure=True)
                 plt.close(fig)
                 
                 progress_bar.progress((step + 1) / (n + max_iter))
@@ -1970,7 +1980,7 @@ if main_tab == "Visualization & Demo":
                             algorithm_name=f"{algorithm} - Optimization",
                             current_node=current_node
                         )
-                        plot_placeholder.pyplot(fig)
+                        plot_placeholder.pyplot(fig, clear_figure=True)
                         plt.close(fig)
                     
                     if len(conflicts_history) > 1 and iteration % max(1, update_frequency * 2) == 0:
@@ -1992,7 +2002,7 @@ if main_tab == "Visualization & Demo":
                         ax2.fill_between(range(len(colors_history)), colors_history, alpha=0.3, color='blue')
                         
                         plt.tight_layout()
-                        convergence_placeholder.pyplot(fig_conv)
+                        convergence_placeholder.pyplot(fig_conv, clear_figure=True)
                         plt.close(fig_conv)
                     
                     progress_bar.progress((n + iteration + 1) / (n + max_iter))
@@ -2036,7 +2046,7 @@ if main_tab == "Visualization & Demo":
                     iteration=len(colors_history) if 'colors_history' in locals() and colors_history else 1,
                     algorithm_name=f"BEST COLORING - {algorithm}"
                 )
-                st.pyplot(fig_final)
+                st.pyplot(fig_final, clear_figure=True)
                 plt.close(fig_final)
             
             with col_info:
@@ -2550,7 +2560,7 @@ elif main_tab == "Comparison Dashboard":
                 ax.legend(loc='best')
                 ax.grid(True, alpha=0.3)
                 
-                st.pyplot(fig)
+                st.pyplot(fig, clear_figure=True)
                 plt.close()
                 
                 # Statistics table
@@ -2625,7 +2635,7 @@ elif main_tab == "Comparison Dashboard":
                     ax.tick_params(axis='x', rotation=45)
                     plt.tight_layout()
                     
-                    st.pyplot(fig)
+                    st.pyplot(fig, clear_figure=True)
                     plt.close()
                 
                 with col2:
@@ -2644,7 +2654,7 @@ elif main_tab == "Comparison Dashboard":
                     ax.tick_params(axis='x', rotation=45)
                     plt.tight_layout()
                     
-                    st.pyplot(fig)
+                    st.pyplot(fig, clear_figure=True)
                     plt.close()
             
             # ========================================
@@ -2687,7 +2697,7 @@ elif main_tab == "Comparison Dashboard":
                 ax2.grid(True, alpha=0.3, axis='y')
                 
                 plt.tight_layout()
-                st.pyplot(fig)
+                st.pyplot(fig, clear_figure=True)
                 plt.close()
                 
                 # Statistical summary
