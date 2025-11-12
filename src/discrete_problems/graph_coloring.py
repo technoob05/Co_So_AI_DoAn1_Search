@@ -377,8 +377,9 @@ class GraphColoringSolver:
         """
         n = graph.n_vertices
         
-        # Start with greedy solution
-        current_coloring, _ = GraphColoringSolver.greedy_dsatur(graph)
+        # Start with RANDOM solution instead of greedy for more diversity
+        max_colors = graph.chromatic_number_upper_bound()
+        current_coloring = np.random.randint(0, max_colors, n)
         current_score = graph.evaluate(current_coloring)
         
         best_coloring = current_coloring.copy()
@@ -444,8 +445,8 @@ class GraphColoringSolver:
         n = graph.n_vertices
         max_colors = graph.chromatic_number_upper_bound()
         
-        # Start with greedy solution
-        current_coloring, _ = GraphColoringSolver.greedy_dsatur(graph)
+        # Start with RANDOM solution instead of greedy for more diversity
+        current_coloring = np.random.randint(0, max_colors, n)
         current_score = graph.evaluate(current_coloring)
         
         best_coloring = current_coloring.copy()
