@@ -31,14 +31,14 @@ Dự án implement, phân tích và so sánh các thuật toán swarm intelligen
 
 ### Bài Toán Test
 
-#### Continuous Optimization (4 hàm):
+#### Continuous Optimization:
 
 - **Sphere Function** - Hàm đơn giản, unimodal
 - **Rastrigin Function** - Hàm phức tạp, nhiều local optima
 - **Rosenbrock Function** - Hàm valley hẹp
 - **Ackley Function** - Hàm nhiều local optima
 
-#### Discrete Optimization (4 bài toán):
+#### Discrete Optimization:
 
 - **TSP** - Traveling Salesman Problem
 - **Knapsack** - 0/1 Knapsack Problem
@@ -65,7 +65,8 @@ Co_So_AI_DoAn1_Search/
 ├── assets/                      # Hình ảnh swarm agents
 ├── notebooks/                   # Jupyter notebooks
 ├── results/                     # Kết quả experiments
-├── requirements.txt
+|── config.yaml                  # Config của các thuật toán
+├── requirements.txt            
 └── README.md
 ```
 
@@ -111,12 +112,14 @@ streamlit run main.py
 Visualize thuật toán chạy real-time với 3D surface plot và animation.
 
 **Cách sử dụng:**
+
 1. Chọn bài toán (Continuous/Discrete)
 2. Chọn thuật toán (Swarm Intelligence/Traditional)
 3. Điều chỉnh tham số (population size, iterations, etc.)
 4. Nhấn "Run Animation"
 
 **Visualization:**
+
 - **PSO**: Fish (cá)
 - **ACO**: Ant (kiến)
 - **ABC**: Bee (ong)
@@ -128,6 +131,7 @@ Visualize thuật toán chạy real-time với 3D surface plot và animation.
 ### Tab 2: Comparison Dashboard
 
 So sánh nhiều thuật toán với multiple runs:
+
 - Convergence curves với std bands
 - Performance metrics (mean, std, best, worst)
 - Box plots (robustness analysis)
@@ -136,6 +140,7 @@ So sánh nhiều thuật toán với multiple runs:
 ### Tab 3: Algorithm Info
 
 Thông tin chi tiết về từng thuật toán:
+
 - Mô tả cách hoạt động
 - Tham số và ý nghĩa
 - Use cases phù hợp
@@ -143,64 +148,40 @@ Thông tin chi tiết về từng thuật toán:
 ## Hiểu Biểu Đồ
 
 ### Convergence Plot
+
 - **Trục X**: Iterations
 - **Trục Y**: Best score (log scale)
 - **Đường xuống nhanh**: Hội tụ nhanh
 - **Vùng tô màu hẹp**: Ổn định
 
 ### Box Plot
+
 - **Box**: 50% dữ liệu giữa (Q1-Q3)
 - **Đường giữa**: Median
 - **X**: Mean
 - **Box hẹp**: Ít biến động
 
 ### 3D Surface
+
 - **Surface màu**: Fitness landscape
 - **Agents**: Population/swarm
 - **Sao đỏ**: Current best
 - **Sao xanh**: Global optimum
 
-## Ví Dụ Sử Dụng
-
-### Chạy PSO trên Rastrigin Function
-
-```python
-from src.swarm_intelligence.pso import PSO
-from src.test_functions import get_test_function
-
-# Setup
-func = get_test_function('rastrigin', dim=10)
-pso = PSO(n_particles=30, dim=10, max_iter=100, bounds=func.bounds)
-
-# Run
-best_pos, best_score = pso.optimize(func, verbose=True)
-
-print(f"Best score: {best_score}")
-print(f"Global optimum: {func.global_optimum}")
-```
-
-## Tính Năng Nổi Bật
-
-- **5 thuật toán Swarm Intelligence** với visualization đẹp
-- **6 thuật toán truyền thống** đầy đủ
-- **8 bài toán test** (4 continuous + 4 discrete)
-- **Real-time 3D animation** với hình ảnh agents sinh động
-- **Comparison framework** với statistical analysis
-- **Export results** (CSV, JSON, LaTeX, PNG)
-
 ## Tác giả
 
 **Nhóm sinh viên - Đồ án 1**
 
+
 | STT | MSSV     | Họ và Tên           |
-| --- | -------- | ------------------- |
+| ----- | ---------- | ------------------------ |
 | 1   | 23122030 | Phạm Phú Hòa        |
 | 2   | 23122041 | Đào Sỹ Duy Minh     |
 | 3   | 23122044 | Trần Chí Nguyên     |
 | 4   | 23122048 | Nguyễn Lâm Phú Quý |
 
-**Môn học:** CSC14003 - Cơ sở Trí tuệ Nhân tạo  
-**Khoa:** Công nghệ Thông tin - ĐHKHTN TPHCM  
+**Môn học:** CSC14003 - Cơ sở Trí tuệ Nhân tạo
+**Khoa:** Công nghệ Thông tin - ĐHKHTN TPHCM
 **Năm học:** 2024-2025
 
 ## Tài Liệu Tham Khảo
