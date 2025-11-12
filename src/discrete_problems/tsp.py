@@ -88,6 +88,140 @@ class TSPSolver:
     """
     
     @staticmethod
+    def ant_colony_optimization(tsp, n_ants=20, max_iter=100, alpha=1.0, beta=2.0, rho=0.5, Q=100):
+        """
+        Ant Colony Optimization (ACO) for TSP
+        Classic Ant System (AS) algorithm
+        
+        Parameters:
+        -----------
+        tsp : TSP
+            TSP problem instance
+        n_ants : int
+            Number of ants
+        max_iter : int
+            Maximum number of iterations
+        alpha : float
+            Pheromone importance (α)
+        beta : float
+            Heuristic importance (β) - distance heuristic
+        rho : float
+            Pheromone evaporation rate (ρ), 0 < ρ < 1
+        Q : float
+            Pheromone deposit constant
+            
+        Returns:
+        --------
+        best_tour : list
+            Best tour found
+        best_distance : float
+            Distance of best tour
+        history : dict
+            Optimization history with pheromone trails
+        """
+        n_cities = tsp.n_cities
+        distance_matrix = tsp.distance_matrix
+        
+        # Initialize pheromone matrix (uniform)
+        pheromone = np.ones((n_cities, n_cities)) * 0.1
+        
+        # Heuristic information (inverse of distance)
+        # η[i][j] = 1 / distance[i][j] (closer = better)
+        heuristic = np.zeros((n_cities, n_cities))
+        for i in range(n_cities):
+            for j in range(n_cities):
+                if i != j and distance_matrix[i, j] > 0:
+                    heuristic[i, j] = 1.0 / distance_matrix[i, j]
+        
+        # History
+        best_tour = None
+        best_distance = np.inf
+        best_distances_history = []
+        mean_distances_history = []
+        pheromone_history = []
+        
+        for iteration in range(max_iter):
+            # All ants construct tours
+            all_tours = []
+            all_distances = []
+            
+            for ant in range(n_ants):
+                # Each ant starts from a random city
+                current_city = np.random.randint(0, n_cities)
+                tour = [current_city]
+                unvisited = set(range(n_cities))
+                unvisited.remove(current_city)
+                
+                # Construct tour
+                while unvisited:
+                    # Calculate probabilities for next city selection
+                    probabilities = []
+                    unvisited_list = list(unvisited)
+                    
+                    for next_city in unvisited_list:
+                        # P[i][j] = (τ[i][j]^α) * (η[i][j]^β)
+                        tau = pheromone[current_city, next_city] ** alpha
+                        eta = heuristic[current_city, next_city] ** beta
+                        probabilities.append(tau * eta)
+                    
+                    # Normalize probabilities
+                    probabilities = np.array(probabilities)
+                    sum_prob = np.sum(probabilities)
+                    
+                    if sum_prob > 0:
+                        probabilities = probabilities / sum_prob
+                    else:
+                        # Fallback: uniform probability
+                        probabilities = np.ones(len(unvisited_list)) / len(unvisited_list)
+                    
+                    # Select next city based on probabilities
+                    next_city_idx = np.random.choice(len(unvisited_list), p=probabilities)
+                    next_city = unvisited_list[next_city_idx]
+                    
+                    tour.append(next_city)
+                    unvisited.remove(next_city)
+                    current_city = next_city
+                
+                # Evaluate tour
+                tour_distance = tsp.evaluate(tour)
+                all_tours.append(tour)
+                all_distances.append(tour_distance)
+                
+                # Update best solution
+                if tour_distance < best_distance:
+                    best_distance = tour_distance
+                    best_tour = tour.copy()
+            
+            # Pheromone evaporation
+            pheromone = (1 - rho) * pheromone
+            
+            # Pheromone deposit
+            for ant_idx, tour in enumerate(all_tours):
+                tour_distance = all_distances[ant_idx]
+                # Deposit amount inversely proportional to tour length
+                deposit = Q / tour_distance
+                
+                for i in range(n_cities):
+                    city_from = tour[i]
+                    city_to = tour[(i + 1) % n_cities]
+                    pheromone[city_from, city_to] += deposit
+                    pheromone[city_to, city_from] += deposit  # Symmetric
+            
+            # Record history
+            best_distances_history.append(best_distance)
+            mean_distances_history.append(np.mean(all_distances))
+            pheromone_history.append(pheromone.copy())
+        
+        history = {
+            'best_distances': np.array(best_distances_history),
+            'mean_distances': np.array(mean_distances_history),
+            'pheromone_trails': pheromone_history,
+            'final_pheromone': pheromone
+        }
+        
+        return best_tour, best_distance, history
+    
+    @staticmethod
     def nearest_neighbor(tsp, start_city=0):
         """
         Nearest Neighbor heuristic for TSP
