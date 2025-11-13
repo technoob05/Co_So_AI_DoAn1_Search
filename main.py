@@ -405,6 +405,7 @@ for option in tab_options:
         type="primary" if is_selected else "secondary"
     ):
         st.session_state.main_tab = option["name"]
+        st.experimental_rerun()
 
 main_tab = st.session_state.main_tab
 
